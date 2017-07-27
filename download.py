@@ -148,12 +148,14 @@ if __name__ == '__main__':
     download_dir = args.download_destination if args.download_destination else os.getcwd()
     extract_dir = args.extract_destination if args.extract_destination else download_dir
     output_dir = args.output_destination if args.output_destination else os.path.join(download_dir, 'frames')
+    downsample_frames = int(args.frames_downsample) if args.frames_downsample else 15
+    downsample_dims = int(args.dims_downsample) if args.dims_downsample else 4
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
     main(
         download_dir, extract_dir, output_dir,
-        downsample_frames=int(args.frames_downsample),
-        downsample_dims=int(args.dims_downsample)
+        downsample_frames=downsample_frames,
+        downsample_dims=downsample_dims
     )
