@@ -1,8 +1,8 @@
 import tensorflow as tf
 L = tf.layers
 
-from activations import *
-from customlayers import *
+from models.activations import *
+from models.customlayers import *
 
 def encoder(image):
     input_layer = tf.reshape(image, (-1, 60, 80, 3))
@@ -35,23 +35,28 @@ def encoder(image):
     return dense1
 
 def decoder(encoded):
-    dense1 = L.dense(encoded, units=104448, activation=selu)
+    dense1 = L.dense(encoded, units=104448, activation=selu, name='dense1')
+
     dense1_reshaped = tf.reshape(dense1, (-1, 48, 68, 32))
 
     deconv1 = L.conv2d_transpose(
-        dense1_reshaped, filters=16, kernel_size=5, activation=selu
+        dense1_reshaped, filters=16, kernel_size=5, activation=selu,
+        name='deconv1'
     )
 
     deconv2 = L.conv2d_transpose(
-        deconv1, filters=16, kernel_size=5, activation=selu
+        deconv1, filters=16, kernel_size=5, activation=selu,
+        name='deconv2'
     )
 
     deconv3 = L.conv2d_transpose(
-        deconv2, filters=16, kernel_size=3, activation=selu
+        deconv2, filters=16, kernel_size=3, activation=selu,
+        name='deconv3'
     )
 
     deconv4 = L.conv2d_transpose(
-        deconv3, filters=3, kernel_size=3, activation=lrelu
+        deconv3, filters=3, kernel_size=3, activation=lrelu,
+        name='deconv4'
     )
 
     deconv3_reshaped = tf.transpose(deconv4, perm=(0, 3, 1, 2))

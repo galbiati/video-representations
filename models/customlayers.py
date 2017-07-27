@@ -1,4 +1,6 @@
 import tensorflow as tf
+import numpy as np
+L = tf.layers
 
 def dense_reshape(incoming, units, **kwargs):
     shape = incoming.get_shape().as_list()
