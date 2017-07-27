@@ -3,3 +3,4 @@ numpy
 pyav
 pafy
 requests
+patool

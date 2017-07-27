@@ -10,3 +10,4 @@ The aim of the models here are to develop latent, frame-level embeddings for vid
 ## Requirements
 Python >= 3.5
 ffmpeg
+rar / unrar
