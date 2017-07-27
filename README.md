@@ -5,7 +5,7 @@ The inspiration is vector embedding for language (characters, words, etc). These
 
 Video data is in some ways fundamentally similar: videos are composed of frames, and frames likewise have context: frames are more likely to co-occur with other frames that contain the same objects, background, and so on. However, frames can't be directly projected like language data; videos are simply too high dimensional.
 
-The aim of the models here are to develop latent, frame-level embeddings for videos that can be used for frame prediction, video generation, and so on.
+The aim of these models is to develop latent, frame-level embeddings for videos that can be used for frame prediction, video generation, and so on.
 
 ## Requirements
 - Python >= 3.5
