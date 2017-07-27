@@ -8,6 +8,6 @@ Video data is in some ways fundamentally similar: videos are composed of frames,
 The aim of the models here are to develop latent, frame-level embeddings for videos that can be used for frame prediction, video generation, and so on.
 
 ## Requirements
-Python >= 3.5
-ffmpeg
-rar / unrar
+- Python >= 3.5
+- ffmpeg
+- rar / unrar
