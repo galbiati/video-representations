@@ -48,7 +48,7 @@ def infer(X, y, model_file, batchsize=128):
 def main():
     data_dir = os.path.expanduser('~/Insight/video-representations/data/downsampled')
     model_file = 'tmp/models/prototype_ae initial.ckpt'
-    X, y = load_all_data_stacked(data_dir, every_n=8)
+    X, y = load_all_data_stacked(data_dir, skip_first=1, every_n=2)
 
     predictions = infer(X, y, model_file)
     print('Saving predictions...')
