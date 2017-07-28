@@ -9,3 +9,6 @@ def selu(x):
 
 def lrelu(x, alpha=.03):
     return tf.maximum(alpha*x, x)
+
+def scaled_sigmoid(x, scale=256):
+    return tf.nn.sigmoid(x*scale)*scale

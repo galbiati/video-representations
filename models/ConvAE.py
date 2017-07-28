@@ -55,7 +55,7 @@ def decoder(encoded):
     )
 
     deconv4 = L.conv2d_transpose(
-        deconv3, filters=3, kernel_size=3, activation=lrelu,
+        deconv3, filters=3, kernel_size=3, activation=selu,
         name='deconv4'
     )
 

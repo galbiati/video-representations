@@ -1,6 +1,6 @@
 tensorflow==1.2
 numpy
-pyav
+av
 pafy
 requests
 patool
