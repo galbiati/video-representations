@@ -5,7 +5,7 @@ import moviepy.editor as mpe
 import tensorflow as tf
 import patoolib
 import tqdm
-
+import psutil
 
 ## Download and extract
 
@@ -88,6 +88,8 @@ def video_to_array(video_file, skip_frames=4):
     video = mpe.VideoFileClip(video_file)
     video_array = np.array([f for f in video.iter_frames()])
     video.reader.close()
+    del video.reader
+    del video
 
     return video_array[::skip_frames]
 
@@ -131,7 +133,6 @@ def video_files_to_tfrecords(output_file, filepaths):
         'unit': ' videos',
         'desc': 'Serializing video frames'
     }
-
     with tf.python_io.TFRecordWriter(output_file) as writer:
         for path in tqdm.tqdm(filepaths, **tqkws):
             video_array = video_to_array(path)
@@ -193,10 +194,5 @@ if __name__ == '__main__':
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-
-    import multiprocessing
-    os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    p = multiprocessing.Pool(processes=4)
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
     main(download_dir, extract_dir, output_dir)
