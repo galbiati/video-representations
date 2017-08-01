@@ -1,4 +1,4 @@
-import os, argparse
+import os, argparse, gc, subprocess
 import numpy as np
 import requests as req
 import moviepy.editor as mpe
@@ -47,7 +47,7 @@ def extract_videos(download_dir, extract_dir):
     filename = os.path.join(download_dir, 'UCF101.rar')
     patoolib.extract_archive(filename, outdir=extract_dir)
 
-    os.remove(filename)
+    # os.remove(filename)
 
     return None
 
@@ -56,27 +56,39 @@ def extract_videos(download_dir, extract_dir):
 
 def get_filepaths(extract_dir):
     """Get paths of all files in directory"""
+    excludes = [
+        # 'v_TableTennisShot_g24_c04.avi'
+    ]
+
     index = []
-    for folder in os.listdir(extract_dir):
-        folderpath = os.path.join(extract_dir, folder)
+    _extract_dir = os.path.join(extract_dir, 'UCF-101')
+    for folder in os.listdir(_extract_dir):
+        folderpath = os.path.join(_extract_dir, folder)
 
         if not os.path.isdir(folderpath):
             continue
 
-        for file in os.listdir(folderpath):
-            if 'avi' not in file:
+        for filename in os.listdir(folderpath):
+            if 'avi' not in filename:
                 continue
 
-            filepath = os.path.join(folderpath, file)
+            if filename in excludes:
+                continue
 
-            index.append(filepath)
+            filepath = os.path.join(folderpath, filename)
 
+            if os.path.exists(filepath):
+                index.append(filepath)
+            else:
+                print(filepath)
     return index
 
 def video_to_array(video_file, skip_frames=4):
     """Read video file into a numpy array and reduce framerate"""
     video = mpe.VideoFileClip(video_file)
     video_array = np.array([f for f in video.iter_frames()])
+    video.reader.close()
+
     return video_array[::skip_frames]
 
 def _bytes_feature(value):
@@ -114,14 +126,13 @@ def video_files_to_tfrecords(output_file, filepaths):
     if type(filepaths) != list:
         filepaths = [filepaths]    # catch single inputs (not a normal case)
 
+    tqkws = {
+        'total': len(filepaths),
+        'unit': ' videos',
+        'desc': 'Serializing video frames'
+    }
+
     with tf.python_io.TFRecordWriter(output_file) as writer:
-
-        tqkws = {
-            'total': len(filepaths),
-            'unit': ' videos',
-            'desc': 'Serializing video frames'
-        }
-
         for path in tqdm.tqdm(filepaths, **tqkws):
             video_array = video_to_array(path)
 
@@ -141,13 +152,15 @@ def video_files_to_tfrecords(output_file, filepaths):
 
             writer.write(observation.SerializeToString())
 
+
+
 def main(download_dir, extract_dir, output_dir, downsample_frames=15):
 
     if not os.path.exists(os.path.join(download_dir, 'UCF101.rar')):
         download_videos(download_dir)
 
     print('\nExtracting archive...\n')
-    extract_videos(download_dir, extract_dir)
+    # extract_videos(download_dir, extract_dir)
 
     filepaths = get_filepaths(extract_dir)
     training_filepaths, validation_filepaths, testing_filepaths = split_video_files(filepaths)
@@ -180,5 +193,10 @@ if __name__ == '__main__':
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
+
+    import multiprocessing
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
+    p = multiprocessing.Pool(processes=4)
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
     main(download_dir, extract_dir, output_dir)
