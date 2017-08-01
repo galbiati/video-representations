@@ -30,7 +30,7 @@ def download_videos(download_dir):
     # use tqdm for progress bar
     chunk_iterator = tqdm.tqdm(
         g.iter_content(chunk_size),
-        total=final_size, unit='KB', unit_scale=True,
+        total=final_size, unit='B', unit_scale=True,
         desc='Downloading video archive...'
     )
 
@@ -134,7 +134,7 @@ def video_files_to_tfrecords(output_file, filepaths):
             feature_dict = {
                 'height': _int_feature(h),
                 'width': _int_feature(w),
-                'image': _bytes_feature(video_array.tostring())
+                'video': _bytes_feature(video_array.tostring())
             }
 
             observation = tf.train.Example(features=tf.train.Features(feature=feature_dict))
@@ -143,7 +143,8 @@ def video_files_to_tfrecords(output_file, filepaths):
 
 def main(download_dir, extract_dir, output_dir, downsample_frames=15):
 
-    download_videos(download_dir)
+    if not os.path.exists(os.path.join(download_dir, 'UCF101.rar')):
+        download_videos(download_dir)
 
     print('\nExtracting archive...\n')
     extract_videos(download_dir, extract_dir)
