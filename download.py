@@ -5,7 +5,6 @@ import moviepy.editor as mpe
 import tensorflow as tf
 import patoolib
 import tqdm
-import psutil
 
 ## Download and extract
 
@@ -57,7 +56,7 @@ def extract_videos(download_dir, extract_dir):
 def get_filepaths(extract_dir):
     """Get paths of all files in directory"""
     excludes = [
-        # 'v_TableTennisShot_g24_c04.avi'
+        'v_TableTennisShot_g24_c04.avi', 
     ]
 
     index = []
