@@ -55,13 +55,12 @@ def extract_videos(download_dir, extract_dir):
 
 def get_filepaths(extract_dir):
     """Get paths of all files in directory"""
-    excludes = [
-        'v_TableTennisShot_g24_c04.avi', 
-    ]
 
     index = []
+    labels = []
     _extract_dir = os.path.join(extract_dir, 'UCF-101')
     for folder in os.listdir(_extract_dir):
+        labels.append(folder)
         folderpath = os.path.join(_extract_dir, folder)
 
         if not os.path.isdir(folderpath):
@@ -71,7 +70,7 @@ def get_filepaths(extract_dir):
             if 'avi' not in filename:
                 continue
 
-            if filename in excludes:
+            if filename[0] == '.':
                 continue
 
             filepath = os.path.join(folderpath, filename)
@@ -80,9 +79,9 @@ def get_filepaths(extract_dir):
                 index.append(filepath)
             else:
                 print(filepath)
-    return index
+    return index, labels
 
-def video_to_array(video_file, skip_frames=4):
+def video_to_array(video_file, n_frames=128):
     """Read video file into a numpy array and reduce framerate"""
     video = mpe.VideoFileClip(video_file)
     video_array = np.array([f for f in video.iter_frames()])
@@ -90,7 +89,12 @@ def video_to_array(video_file, skip_frames=4):
     del video.reader
     del video
 
-    return video_array[::skip_frames]
+    if video_array.shape[0] > n_frames:
+        return video_array[:n_frames]
+    else:
+        shape = video_array.shape
+        pad = np.zeros([n_frames - shape[0], shape[1], shape[2], shape[3]])
+        return np.concatenate([video_array, pad])
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -121,7 +125,7 @@ def split_video_files(filepaths, ratio=10):
 
     return train_filepaths.tolist(), validation_filepaths.tolist(), test_filepaths.tolist()
 
-def video_files_to_tfrecords(output_file, filepaths):
+def video_files_to_tfrecords(output_file, filepaths, label_dict):
     """Serializes video files in filepaths to a tfrecords file in output_file"""
 
     if type(filepaths) != list:
@@ -132,25 +136,36 @@ def video_files_to_tfrecords(output_file, filepaths):
         'unit': ' videos',
         'desc': 'Serializing video frames'
     }
+
+    video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
+    downsampled = tf.layers.max_pooling2d(video_placeholder, 4, 4, name='downsampler')
+    downsampled_reshaped = tf.reshape(downsampled, (-1, 60, 80, 3))
+
     with tf.python_io.TFRecordWriter(output_file) as writer:
-        for path in tqdm.tqdm(filepaths, **tqkws):
-            video_array = video_to_array(path)
+        with tf.Session() as sesh:
+            for path in tqdm.tqdm(filepaths, **tqkws):
+                video_array = video_to_array(path)
+                label = label_dict[os.path.split(os.path.abspath(os.path.join(path, os.pardir)))[-1]]
 
-            w = video_array.shape[2]
-            h = video_array.shape[1]
+                l = video_array.shape[0]
+                w = video_array.shape[2]
+                h = video_array.shape[1]
 
-            if h != 240 or w != 320:
-                continue
+                if h != 240 or w != 320:
+                    continue
 
-            feature_dict = {
-                'height': _int_feature(h),
-                'width': _int_feature(w),
-                'video': _bytes_feature(video_array.tostring())
-            }
+                downsampled_video_array = downsampled_reshaped.eval({video_placeholder: video_array})
+                feature_dict = {
+                    'height': _int_feature(h),
+                    'width': _int_feature(w),
+                    'length': _int_feature(l),
+                    'video': _bytes_feature(downsampled_video_array.tostring()),
+                    'label': _int_feature(label)
+                }
 
-            observation = tf.train.Example(features=tf.train.Features(feature=feature_dict))
+                observation = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
-            writer.write(observation.SerializeToString())
+                writer.write(observation.SerializeToString())
 
 
 
@@ -162,18 +177,19 @@ def main(download_dir, extract_dir, output_dir, downsample_frames=15):
     print('\nExtracting archive...\n')
     # extract_videos(download_dir, extract_dir)
 
-    filepaths = get_filepaths(extract_dir)
+    filepaths, labels = get_filepaths(extract_dir)
     training_filepaths, validation_filepaths, testing_filepaths = split_video_files(filepaths)
+    label_dict = dict(zip(labels, np.arange(len(labels))))
 
     print('\nSerialize me, Scotty')
     training_output = os.path.join(output_dir, 'training.tfrecords')
-    video_files_to_tfrecords(training_output, training_filepaths)
+    video_files_to_tfrecords(training_output, training_filepaths, label_dict)
 
     validation_output = os.path.join(output_dir, 'validation.tfrecords')
-    video_files_to_tfrecords(validation_output, validation_filepaths)
+    video_files_to_tfrecords(validation_output, validation_filepaths, label_dict)
 
     testing_output = os.path.join(output_dir, 'testing.tfrecords')
-    video_files_to_tfrecords(testing_output, testing_filepaths)
+    video_files_to_tfrecords(testing_output, testing_filepaths, label_dict)
 
     print('\nAll done!')
     return None
