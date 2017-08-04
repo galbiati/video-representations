@@ -81,7 +81,7 @@ def get_filepaths(extract_dir):
                 print(filepath)
     return index, labels
 
-def video_to_array(video_file, n_frames=128):
+def video_to_array(video_file, n_frames=256):
     """Read video file into a numpy array and reduce framerate"""
     video = mpe.VideoFileClip(video_file)
     video_array = np.array([f for f in video.iter_frames()])
