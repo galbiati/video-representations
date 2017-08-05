@@ -1,0 +1,11 @@
+2017 08 05
+
+12:10
+Model output remains grid of 3x3 grey rectangles. Observations so far:
+- grid is sharper using linear/relu/selu output units than tanh out
+- grid is not unique to training data; on fake data (movies of a static white diagonal of pixels), it still outputs the grid of rectangles
+- the problem does not appear to be with the LSTM; a regular autoencoder without the intervening units exhibits the same pathology
+
+This smells like a bug - possibly another dtype or encoding error. I previously checked that the videos can be correctly reconstructed from the .tfrecords files, which they can.
+
+I'm going to switch gears and begin unloading functions from the notebook, which has become unwieldy. Maybe as I deconstruct code, I will find the bug...

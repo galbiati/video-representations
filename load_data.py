@@ -1,52 +1,46 @@
 import os
-import numpy as np
+import tensorflow as tf
 
-def load_data(filepath):
-    """Loads data from a npz file into a list of videos as numpy arrays"""
-    with np.load(filepath) as f:
-        frames = [arr for name, arr in f.items()]
+def read_record(filepath_queue):
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filepath_queue)
 
-    return list(frames[0])
+    features = tf.parse_single_example(
+        serialized_example,
+        features={
+            'height': tf.FixedLenFeature([], tf.int64),
+            'width': tf.FixedLenFeature([], tf.int64),
+            'video': tf.FixedLenFeature([], tf.string),
+            'label': tf.FixedLenFeature([], tf.int64),
+            'length': tf.FixedLenFeature([], tf.int64)
+        }
+    )
 
-def load_all_data_stacked(data_dir, skip_first=0, every_n=1):
-    """Loads data from all npz files and stacks data into 4D numpy arrays"""
-    filepaths = [os.path.join(data_dir, f) for f in os.listdir(data_dir)]
-    frames = [load_data(filepath) for filepath in filepaths[skip_first::every_n]]
-    X = np.concatenate([np.concatenate([f[:-1] for f in frame]) for frame in frames])
-    y = np.concatenate([np.concatenate([f[1:] for f in frame]) for frame in frames])
+    video = tf.decode_raw(features['video'], tf.uint8)   # feature may be renamed to video in future
 
-    return X, y
+    video_shape = tf.stack([-1, 60, 80, 3])
+    video = tf.cast(tf.reshape(video, video_shape), tf.float32)
+    video = tf.slice(video, [0, 0, 0, 0], [128, -1, -1, -1])
+    video = (video - 127.5) / 127.5
 
-def load_all_data_sequences(data_dir, skip_first=0, every_n=1):
-    filepaths = [os.path.join(data_dir, f) for f in os.listdir(data_dir)]
-    frames = [load_data(filepath) for filepath in filepaths[skip_first::every_n]]
+    return video
 
-    return frames
+def inputs(split_type, batchsize, num_epochs):
+    if not num_epochs:
+        num_epochs = None
 
-def get_splits(X, y, ratio=10):
-    """Get training and test splits from numpy arrays"""
+    filepath = os.path.join(data_dir, '{}.tfrecords'.format(split_type))
 
-    assert X.shape[0] == y.shape[0]
+    with tf.name_scope('input'):
+        filepath_queue = tf.train.string_input_producer([filepath], num_epochs=num_epochs)
 
-    idxs = np.arange(X.shape[0])
-    np.random.shuffle(idxs)
-    train_idxs = idxs[(idxs.size//ratio):]
-    test_idxs = idxs[:(idxs.size//ratio)]
+    video = read_record(filepath_queue)
+    videos = tf.train.shuffle_batch(
+        [video], batchsize,
+        capacity=128 + 2*batchsize, min_after_dequeue=128, num_threads=2
+    )
 
-    X_train = X[train_idxs]
-    y_train = y[train_idxs]
-    X_test = X[test_idxs]
-    y_test = y[test_idxs]
+    video_inputs = tf.slice(videos, begin=[0, 0, 0, 0, 0], size=[-1, 64, -1, -1, -1])
+    video_outputs = tf.slice(videos, begin=[0, 1, 0, 0, 0], size=[-1, 64, -1, -1, -1])
 
-    return X_train, y_train, X_test, y_test
-
-def pad_frames(frames, final_length=20):
-    """Pad videos by prepending empty frames to have same length"""
-
-    pad = np.zeros((3, 60, 80), dtype=np.int8)[np.newaxis, :, :, :]
-    if frames.shape[0] <= 20:
-        padstack = np.repeat(pad, final_length - frames.shape[0], axis=0)
-        return np.concatenate((padstack, frames))
-
-    else:
-        return frames[:20]
+    return video_inputs, video_outputs
