@@ -137,9 +137,10 @@ def video_files_to_tfrecords(output_file, filepaths, label_dict):
         'desc': 'Serializing video frames'
     }
 
-    video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
-    downsampled = tf.layers.max_pooling2d(video_placeholder, 4, 4, name='downsampler')
-    downsampled_reshaped = tf.reshape(downsampled, (-1, 60, 80, 3))
+    with tf.device('/cpu:0'):
+        video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
+        downsampled = tf.layers.max_pooling2d(video_placeholder, 4, 4, name='downsampler')
+        downsampled_reshaped = tf.reshape(downsampled, (-1, 60, 80, 3))
 
     with tf.python_io.TFRecordWriter(output_file) as writer:
         with tf.Session() as sesh:
@@ -159,15 +160,13 @@ def video_files_to_tfrecords(output_file, filepaths, label_dict):
                     'height': _int_feature(h),
                     'width': _int_feature(w),
                     'length': _int_feature(l),
-                    'video': _bytes_feature(downsampled_video_array.tostring()),
+                    'video': _bytes_feature(downsampled_video_array.astype(np.uint8).tostring()),
                     'label': _int_feature(label)
                 }
 
                 observation = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
                 writer.write(observation.SerializeToString())
-
-
 
 def main(download_dir, extract_dir, output_dir, downsample_frames=15):
 
