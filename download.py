@@ -90,11 +90,11 @@ def video_to_array(video_file, n_frames=256):
     del video
 
     if video_array.shape[0] > n_frames:
-        return video_array[:n_frames]
+        return video_array[:n_frames].astype(np.float32)
     else:
         shape = video_array.shape
         pad = np.zeros([n_frames - shape[0], shape[1], shape[2], shape[3]])
-        return np.concatenate([video_array, pad])
+        return np.concatenate([video_array, pad]).astype(np.float32)
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))

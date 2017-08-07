@@ -1,6 +1,8 @@
 import os
 import tensorflow as tf
 
+
+
 def read_record(filepath_queue):
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filepath_queue)
@@ -20,12 +22,15 @@ def read_record(filepath_queue):
 
     video_shape = tf.stack([-1, 60, 80, 3])
     video = tf.cast(tf.reshape(video, video_shape), tf.float32)
+    # video = tf.transpose(video, (0, 2, 3, 1))
     video = tf.slice(video, [0, 0, 0, 0], [128, -1, -1, -1])
-    video = (video - 127.5) / 127.5
 
     return video
 
 def inputs(split_type, batchsize, num_epochs):
+
+    data_dir = os.path.expanduser('~/Insight/video-representations/frames')
+
     if not num_epochs:
         num_epochs = None
 

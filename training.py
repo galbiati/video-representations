@@ -8,13 +8,12 @@ def get_l2_term(exclude_names=['lstm']):
     return tf.add_n([tf.nn.l2_loss(v) for v in l2_vars])
 
 
-def train(build_model, inputs, targets,
+def train(model, inputs, targets,
             num_epochs=10, batchsize=16, l2weight=None,
             save=True, print_interval=500):
 
-    encoded_input, encoded_targets, decoded_prediction = build_model(inputs, targets, batchsize)
-
-    loss = tf.reduce_mean(tf.pow(decoded_prediction - targets, 2))
+    encoded, transitioned, decoded = model.build_full(inputs, batchsize)
+    loss = tf.reduce_mean(tf.pow(decoded - targets, 2))
     training_loss = loss + l2weight * get_l2_term() if l2weight is not None else loss
     train_step = tf.train.AdamOptimizer().minimize(training_loss)
 
@@ -23,7 +22,6 @@ def train(build_model, inputs, targets,
 
     init_global = tf.global_variables_initalizer()
     init_local = tf.local_variables_initializer()
-
     coord = tf.train.Coordinator()
 
     with tf.Session() as sesh:
@@ -42,6 +40,8 @@ def train(build_model, inputs, targets,
                 if step % 500 == 0:
                     print('Step {} loss:\t{:.8f}'.format(step, loss_value))
 
+                step += 1
+
         except tf.errors.OutOfRangeError:
             print('Done; loss:\t{:.8f}'.format(loss_value))
 
@@ -52,9 +52,6 @@ def train(build_model, inputs, targets,
         saver.save(sesh, 'prototype-lstm')
 
     return losses
-
-
-
 
 def iterate_minibatches(inputs, targets, batchsize=32, shuffle=False):
     """Utility func for shuffling minibatches with placeholder inputs"""
