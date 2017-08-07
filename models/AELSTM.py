@@ -33,9 +33,19 @@ def encoder(image):
     newdim = shape_[1] * shape_[2] * shape_[3]
     print(shape_, newdim)
 
-    dense1 = dense_reshape(conv4, name='dense1', units=1024, activation=tf.nn.tanh)
+    dense1 = dense_reshape(conv4, name='dense1', units=1024, activation=lrelu)
+    layer_tuple = (input_layer, conv1, conv2, conv3, conv4, dense1)
+    return tf.reshape(dense1, (-1, 64, 1024)), layer_tuple    # hardcoded seq length >:(
 
-    return tf.reshape(dense1, (-1, 64, 1024))    # hardcoded seq length
+# def symmetric_decoder(encoded, encoded_layers):
+#     encoded_reshaped = tf.reshape(encoded, (-1, 1024))
+#     dense1 = invert_layer(tf.transpose(encoded_reshaped, (1, 0)), encoded_layers[-1], encoded_layers[-2])
+#     deconv1 = invert_layer(dense1, encoded_layers[-2], encoded_layers[-3])
+#     deconv2 = invert_layer(deconv1, encoded_layers[-3], encoded_layers[-4])
+#     deconv3 = invert_layer(deconv2, encoded_layers[-4], encoded_layers[-5])
+#     deconv4 = invert_layer(deconv3, encoded_layers[-5], encoded_layers[-6])
+#
+#     return deconv4
 
 
 def decoder(encoded):
@@ -65,8 +75,6 @@ def decoder(encoded):
         filters=3, kernel_size=3, activation=lrelu,
     )
 
-    deconv4_reshaped = tf.transpose(deconv4, perm=(0, 3, 1, 2))
+    return deconv4
 
-    return deconv4_reshaped
-
-lstm_cell = tf.nn.rnn_cell.LSTMCell(num_units=1024)
+lstm_cell = PTLSTMCell(num_units=1024)
