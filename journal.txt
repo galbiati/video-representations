@@ -9,3 +9,11 @@ Model output remains grid of 3x3 grey rectangles. Observations so far:
 This smells like a bug - possibly another dtype or encoding error. I previously checked that the videos can be correctly reconstructed from the .tfrecords files, which they can.
 
 I'm going to switch gears and begin unloading functions from the notebook, which has become unwieldy. Maybe as I deconstruct code, I will find the bug...
+
+2017 08 07
+
+10:00
+I found that the AE was not test properly, so it may not be a decoder problem after all. Testing again now; will know after meeting.
+
+12:15
+I have finally found the problem - tensorflow does not reshape intelligently. I was using a tf.reshape operation that needed tf.transpose called beforehand. Very sad. Hopefully now I can get some useful output?
