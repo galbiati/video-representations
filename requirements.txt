@@ -1,6 +1,5 @@
 tensorflow==1.2
 numpy
-av
-pafy
+moviepy
 requests
 patool

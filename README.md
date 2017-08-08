@@ -11,3 +11,4 @@ The aim of these models is to develop latent, frame-level embeddings for videos 
 - Python >= 3.5
 - ffmpeg
 - rar / unrar
+- requirements.txt
