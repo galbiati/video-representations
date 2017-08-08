@@ -1,14 +1,13 @@
-import os, sys
+import os, argparse, gc, subprocess
 import numpy as np
 import requests as req
+import moviepy.editor as mpe
 import tensorflow as tf
 import patoolib
-import av
 import tqdm
 
-L = tf.layers
+## Download and extract
 
-frame_to_array = lambda frame: np.array(frame.to_image())
 
 def download_videos(download_dir):
     """Download UCF-101 videos"""
@@ -30,8 +29,8 @@ def download_videos(download_dir):
     # use tqdm for progress bar
     chunk_iterator = tqdm.tqdm(
         g.iter_content(chunk_size),
-        total=final_size, unit='KB', unit_scale=True,
-        desc='Video archive'
+        total=final_size, unit='B', unit_scale=True,
+        desc='Downloading video archive...'
     )
 
     # write chunks
@@ -47,115 +46,167 @@ def extract_videos(download_dir, extract_dir):
     filename = os.path.join(download_dir, 'UCF101.rar')
     patoolib.extract_archive(filename, outdir=extract_dir)
 
-    # clean up archive
-    os.remove(filename) # set an option to keep rar archive
+    # os.remove(filename)
 
     return None
 
-def load_frames(filepath, downsampler, downsample_frames=15, downsample_dims=4):
-    """Load the frames from the specified video file into a numpy array"""
 
-    video = av.open(filepath)
-    raw_frames = np.array([frame_to_array(frame) for frame in video.decode(video=0)])
+## Conver to TFRecords files
 
-    if raw_frames.shape[1] != 240:
-        return None
+def get_filepaths(extract_dir):
+    """Get paths of all files in directory"""
 
-    frames = downsampler(raw_frames)
+    index = []
+    labels = []
+    _extract_dir = os.path.join(extract_dir, 'UCF-101')
+    for folder in os.listdir(_extract_dir):
+        labels.append(folder)
+        folderpath = os.path.join(_extract_dir, folder)
 
-    return frames[::downsample_frames, :, :, :]
+        if not os.path.isdir(folderpath):
+            continue
 
-def videos_to_frames(extract_dir, output_dir, downsample_frames=15, downsample_dims=4):
-    """Save downsampled video frames for all files in directory"""
-
-    # create iterator with progress bar for action categories
-    ucf_dir = os.path.join(extract_dir, 'UCF-101')
-    categories = os.listdir(ucf_dir)
-    category_iterator = tqdm.tqdm(categories, unit='file', desc='Converting videos to frames')
-
-    # initialize tensorflow sesh
-    input_var = tf.placeholder(dtype=tf.float32, shape=(None, 240, 320, 3), name='frames')
-    pool = L.average_pooling2d(input_var, pool_size=downsample_dims, strides=downsample_dims)
-    downsampler = lambda images: pool.eval({input_var: images})
-
-    # give load_frames downsample params
-    lf = lambda filepath: load_frames(filepath, downsampler=downsampler, downsample_frames=downsample_frames, downsample_dims=downsample_dims)
-
-    # run it
-    with tf.Session() as sesh:
-        init = tf.global_variables_initializer()
-
-        for category in category_iterator:
-
-            # ignore dud files that OS X creates
-            if category == '.DS_Store':
+        for filename in os.listdir(folderpath):
+            if 'avi' not in filename:
                 continue
 
-            # name and path for output file
-            filename = '{}.npz'.format(category)
-            filepath = os.path.join(output_dir, filename)
+            if filename[0] == '.':
+                continue
 
-            # skip if file already exists
+            filepath = os.path.join(folderpath, filename)
+
             if os.path.exists(filepath):
-                continue
+                index.append(filepath)
+            else:
+                print(filepath)
+    return index, labels
 
-            # get filepaths for every video file in action category folder
-            loadpath = os.path.join(ucf_dir, category)
-            filenames = os.listdir(loadpath)
-            filepaths = [os.path.join(loadpath, filename) for filename in filenames]
+def video_to_array(video_file, n_frames=256):
+    """Read video file into a numpy array and reduce framerate"""
+    video = mpe.VideoFileClip(video_file)
+    video_array = np.array([f for f in video.iter_frames()])
+    video.reader.close()
+    del video.reader
+    del video
 
-            videos = [lf(filepath) for filepath in filepaths]
-            videos = [v for v in videos if v is not None]
+    if video_array.shape[0] > n_frames:
+        return video_array[:n_frames].astype(np.float32)
+    else:
+        shape = video_array.shape
+        pad = np.zeros([n_frames - shape[0], shape[1], shape[2], shape[3]])
+        return np.concatenate([video_array, pad]).astype(np.float32)
 
-            # name file and compress to npz
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-            np.savez_compressed(filepath, *videos)
+def _int_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-            # cleanup video files
-            for filepath in filepaths:
-                os.remove(filepath)
+def split_video_files(filepaths, ratio=10):
+    """
+    Splits a list of video files into training, validation, and test sets
 
-    return None
+    Args:
+    - filepaths is a list of complete filepaths for video files in the dataset
+    - ratio is the inverted fraction indicating the relative size of validation/test sets
 
-def main(download_dir, extract_dir, output_dir,
-            downsample_frames=15, downsample_dims=4):
+    For example, ratio=10 means 1/10th of the data set aside as test set,
+    and 1/10th set aside as validation set
+    """
 
-    print('Downloading archive...\n')
-    download_videos(download_dir)
+    filepath_array = np.array(filepaths)
+    n_files = filepath_array.shape[0]
+    filepath_index = np.arange(n_files)
+    np.random.shuffle(filepath_index)
+
+    train_filepaths = filepath_array[filepath_index[2*(n_files//ratio):]]
+    test_filepaths = filepath_array[:n_files//ratio]
+    validation_filepaths = filepath_array[n_files//ratio:2*(n_files//ratio)]
+
+    return train_filepaths.tolist(), validation_filepaths.tolist(), test_filepaths.tolist()
+
+def video_files_to_tfrecords(output_file, filepaths, label_dict):
+    """Serializes video files in filepaths to a tfrecords file in output_file"""
+
+    if type(filepaths) != list:
+        filepaths = [filepaths]    # catch single inputs (not a normal case)
+
+    tqkws = {
+        'total': len(filepaths),
+        'unit': ' videos',
+        'desc': 'Serializing video frames'
+    }
+
+    with tf.device('/cpu:0'):
+        video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
+        downsampled = tf.layers.max_pooling2d(video_placeholder, 4, 4, name='downsampler')
+        downsampled_reshaped = tf.reshape(downsampled, (-1, 60, 80, 3))
+
+    with tf.python_io.TFRecordWriter(output_file) as writer:
+        with tf.Session() as sesh:
+            for path in tqdm.tqdm(filepaths, **tqkws):
+                video_array = video_to_array(path)
+                label = label_dict[os.path.split(os.path.abspath(os.path.join(path, os.pardir)))[-1]]
+
+                l = video_array.shape[0]
+                w = video_array.shape[2]
+                h = video_array.shape[1]
+
+                if h != 240 or w != 320:
+                    continue
+
+                downsampled_video_array = downsampled_reshaped.eval({video_placeholder: video_array})
+                feature_dict = {
+                    'height': _int_feature(h),
+                    'width': _int_feature(w),
+                    'length': _int_feature(l),
+                    'video': _bytes_feature(downsampled_video_array.astype(np.uint8).tostring()),
+                    'label': _int_feature(label)
+                }
+
+                observation = tf.train.Example(features=tf.train.Features(feature=feature_dict))
+
+                writer.write(observation.SerializeToString())
+
+def main(download_dir, extract_dir, output_dir, downsample_frames=15):
+
+    if not os.path.exists(os.path.join(download_dir, 'UCF101.rar')):
+        download_videos(download_dir)
+
     print('\nExtracting archive...\n')
-    extract_videos(download_dir, extract_dir)
+    # extract_videos(download_dir, extract_dir)
 
-    print('\nConverting videos to numpy and reducing size...')
-    videos_to_frames(
-        extract_dir, output_dir,
-        downsample_frames=downsample_frames, downsample_dims=downsample_dims
-    )
+    filepaths, labels = get_filepaths(extract_dir)
+    training_filepaths, validation_filepaths, testing_filepaths = split_video_files(filepaths)
+    label_dict = dict(zip(labels, np.arange(len(labels))))
+
+    print('\nSerialize me, Scotty')
+    training_output = os.path.join(output_dir, 'training.tfrecords')
+    video_files_to_tfrecords(training_output, training_filepaths, label_dict)
+
+    validation_output = os.path.join(output_dir, 'validation.tfrecords')
+    video_files_to_tfrecords(validation_output, validation_filepaths, label_dict)
+
+    testing_output = os.path.join(output_dir, 'testing.tfrecords')
+    video_files_to_tfrecords(testing_output, testing_filepaths, label_dict)
+
     print('\nAll done!')
     return None
 
 if __name__ == '__main__':
-    import argparse
     parser = argparse.ArgumentParser(description='Download the UCF-101 video data, extract it, and convert videos to downsampled arrays in npz files')
 
     parser.add_argument('--download_destination', type=str, help="Where the rar archive goes")
     parser.add_argument('--extract_destination', type=str, help="Where the rar contents are extracted")
-    parser.add_argument('--output_destination', type=str, help="Where the npz archives are stored")
-    parser.add_argument('--frames_downsample', type=str, help="Only keey every n frames")
-    parser.add_argument('--dims_downsample', type=str, help="Reduce image resolution by a factor of n")
+    parser.add_argument('--output_destination', type=str, help="Where the tensorflow records are stored")
     args = parser.parse_args()
 
     # do the below inside main() ?
     download_dir = args.download_destination if args.download_destination else os.getcwd()
     extract_dir = args.extract_destination if args.extract_destination else download_dir
     output_dir = args.output_destination if args.output_destination else os.path.join(download_dir, 'frames')
-    downsample_frames = int(args.frames_downsample) if args.frames_downsample else 15
-    downsample_dims = int(args.dims_downsample) if args.dims_downsample else 4
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    main(
-        download_dir, extract_dir, output_dir,
-        downsample_frames=downsample_frames,
-        downsample_dims=downsample_dims
-    )
+    main(download_dir, extract_dir, output_dir)

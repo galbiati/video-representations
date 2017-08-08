@@ -1,0 +1,26 @@
+2017 08 05
+
+12:10
+Model output remains grid of 3x3 grey rectangles. Observations so far:
+- grid is sharper using linear/relu/selu output units than tanh out
+- grid is not unique to training data; on fake data (movies of a static white diagonal of pixels), it still outputs the grid of rectangles
+- the problem does not appear to be with the LSTM; a regular autoencoder without the intervening units exhibits the same pathology
+
+This smells like a bug - possibly another dtype or encoding error. I previously checked that the videos can be correctly reconstructed from the .tfrecords files, which they can.
+
+I'm going to switch gears and begin unloading functions from the notebook, which has become unwieldy. Maybe as I deconstruct code, I will find the bug...
+
+2017 08 07
+
+10:00
+I found that the AE was not test properly, so it may not be a decoder problem after all. Testing again now; will know after meeting.
+
+12:15
+I have finally found the problem - tensorflow does not reshape intelligently. I was using a tf.reshape operation that needed tf.transpose called beforehand. Very sad. Hopefully now I can get some useful output?
+
+16:30
+Model is working and producing output now, which is a nice change. However, output has generally been sad grey. I suspected the problem was the LSTM architecture. First, LSTM unnecessarily projects input to output instead of passing through, so I modified the cell to simply pass the input through to the state interaction. Second, the output in LSTM is typically passed through a sigmoid function. I strongly suspect the sigmoid of destroying information (or accessibility, at least) from LSTM input vector. So away it goes.
+
+The core logic here is that the memory state learns "motion" information and interacts with the image encodings, encouraging the co-learning of motion-relevant features in image encoder and motion information in the LSTM hidden state.
+
+Let's see how it works.

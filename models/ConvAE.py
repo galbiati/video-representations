@@ -5,22 +5,22 @@ from models.activations import *
 from models.customlayers import *
 
 def encoder(image):
-    input_layer = tf.reshape(image, (-1, 60, 80, 3))
+    input_layer = tf.reshape(image, (-1, 240, 320, 3))
 
     conv1 = L.conv2d(
         input_layer, filters=16, kernel_size=3, activation=selu
     )
 
     conv2 = L.conv2d(
-        conv1, filters=16, kernel_size=3, activation=selu
+        conv1, filters=32, kernel_size=3, activation=selu
     )
 
     conv3 = L.conv2d(
-        conv2, filters=16, kernel_size=5, activation=selu
+        conv2, filters=64, kernel_size=5, activation=selu
     )
 
     conv4 = L.conv2d(
-        conv3, filters=32, kernel_size=5, activation=selu
+        conv3, filters=128, kernel_size=5, activation=selu
     )
 
     shape = conv4.get_shape().as_list()
@@ -30,7 +30,7 @@ def encoder(image):
     conv4_flat = tf.reshape(conv4, (-1, newdim))
     print(conv4_flat.shape)
 
-    dense1 = dense_reshape(conv4, units=1024, activation=selu)
+    dense1 = dense_reshape(conv4, units=4096, activation=selu)
 
     return dense1
 

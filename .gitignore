@@ -1,3 +1,14 @@
 *.avi
+*.mp4
 *.rar
 *.npz
+*.tfrecords
+__pycache__
+.ipynb_checkpoints
+.DS_Store
+._.DS_Store
+UCF-101
+checkpoint
+*.data-00000-of-00001
+*.index
+*.meta
