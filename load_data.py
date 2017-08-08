@@ -22,12 +22,13 @@ def read_record(filepath_queue):
 
     video_shape = tf.stack([-1, 60, 80, 3])
     video = tf.cast(tf.reshape(video, video_shape), tf.float32)
-    # video = tf.transpose(video, (0, 2, 3, 1))
     video = tf.slice(video, [0, 0, 0, 0], [128, -1, -1, -1])
 
     return video
 
-def inputs(split_type, batchsize, num_epochs):
+def inputs(split_type, batchsize, num_epochs, queue_name=None):
+    if not queue_name:
+        queue_name = split_type
 
     data_dir = os.path.expanduser('~/Insight/video-representations/frames')
 
@@ -36,7 +37,7 @@ def inputs(split_type, batchsize, num_epochs):
 
     filepath = os.path.join(data_dir, '{}.tfrecords'.format(split_type))
 
-    with tf.name_scope('input'):
+    with tf.name_scope('input/' + queue_name):
         filepath_queue = tf.train.string_input_producer([filepath], num_epochs=num_epochs)
 
     video = read_record(filepath_queue)

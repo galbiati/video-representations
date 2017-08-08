@@ -8,10 +8,10 @@ from models.customlayers import *
 #       how to make it smarter (ie, move OUTSIDE function)
 
 def encoder(image):
-    input_layer = tf.reshape(image, (-1, 60, 80, 3))
+    # input_layer = tf.reshape(image, (-1, 60, 80, 3))
 
     conv1 = L.conv2d(
-        input_layer, name='conv1',
+        image, name='conv1',
         filters=16, kernel_size=3, activation=selu
     )
 
@@ -33,19 +33,9 @@ def encoder(image):
     newdim = shape_[1] * shape_[2] * shape_[3]
     print(shape_, newdim)
 
-    dense1 = dense_reshape(conv4, name='dense1', units=1024, activation=lrelu)
-    layer_tuple = (input_layer, conv1, conv2, conv3, conv4, dense1)
-    return tf.reshape(dense1, (-1, 64, 1024)), layer_tuple    # hardcoded seq length >:(
-
-# def symmetric_decoder(encoded, encoded_layers):
-#     encoded_reshaped = tf.reshape(encoded, (-1, 1024))
-#     dense1 = invert_layer(tf.transpose(encoded_reshaped, (1, 0)), encoded_layers[-1], encoded_layers[-2])
-#     deconv1 = invert_layer(dense1, encoded_layers[-2], encoded_layers[-3])
-#     deconv2 = invert_layer(deconv1, encoded_layers[-3], encoded_layers[-4])
-#     deconv3 = invert_layer(deconv2, encoded_layers[-4], encoded_layers[-5])
-#     deconv4 = invert_layer(deconv3, encoded_layers[-5], encoded_layers[-6])
-#
-#     return deconv4
+    dense1 = dense_reshape(conv4, name='dense1', units=1024, activation=selu)
+    # layer_tuple = (input_layer, conv1, conv2, conv3, conv4, dense1)
+    return tf.reshape(dense1, (-1, 64, 1024)) #, layer_tuple
 
 
 def decoder(encoded):
@@ -72,7 +62,7 @@ def decoder(encoded):
 
     deconv4 = L.conv2d_transpose(
         deconv3, name='deconv4',
-        filters=3, kernel_size=3, activation=lrelu,
+        filters=3, kernel_size=3, activation=selu,
     )
 
     return deconv4

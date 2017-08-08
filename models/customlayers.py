@@ -47,13 +47,7 @@ class PTLSTMCell(tfrnn.RNNCell):
         return self._output_size
 
     def call(self, inputs, state):
-        num_proj = self._num_units
-
-        # c_prev = tf.slice(state, [0, 0], [-1, self._num_units])
-        # m_prev = tf.slice(state, [0, self._num_units], [-1, num_proj])
         c_prev, m_prev = state
-
-        dtype = inputs.dtype
         input_size = inputs.get_shape().with_rank(2)[1]
 
         assert input_size.value is not None
@@ -65,7 +59,7 @@ class PTLSTMCell(tfrnn.RNNCell):
 
             c = tf.nn.sigmoid(f + self._forget_bias) * c_prev # forget from hidden state
             c = c + tf.nn.sigmoid(i) * self._activation(j) # update hidden state with gated input
-            m = inputs * self._activation(c)
+            m = inputs * self._activation(c)    # straight multiply inputs by hidden state filter
 
         new_state = (tfrnn.LSTMStateTuple(c, m))
         return m, new_state
