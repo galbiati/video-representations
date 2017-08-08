@@ -2,9 +2,21 @@ import tensorflow as tf
 from tensorflow.python.ops import rnn_cell_impl as tfrnn
 
 class Model(object):
-    # add batchsize and sequence length to model object
+    """
+    Model is a wrapper for the full LSTM Encoder model.
+
+    // Future: modify to allow variable-length sequences using clever slicing,
+                rather than reshaping
+
+    __init__ args:
+    :encoder is a function that returns a batch of image encodings (rank 2 tensor)
+    :cell is a recurrent neural network cell that can be passed to tf.nn.rnn_cell.dynamic_rnn
+    :decoder is a function that returns a batch of decoded images (rank 4 tensor)
+    :batchsize is the size of batches (necessary for proper reshaping)
+    :seqlen is the length of sequences (necessary for proper reshaping)
+    """
+
     def __init__(self, encoder, cell, decoder, batchsize, seqlen):
-        """batchsize is necessary for reshaping"""
         self.encoder = encoder
         self.cell = cell
         self.decoder = decoder
@@ -15,8 +27,7 @@ class Model(object):
 
     def stack(self, tensor):
         """
-        Stacks batches and sequences to
-        transform tensor to be shape (batchsize*seqlen, ...)
+        Stacks batches and sequences to transform tensor to be shape (batchsize*seqlen, ...)
         """
         shape = tensor.get_shape().as_list()
         if shape[0] == self.batchsize:
@@ -28,8 +39,7 @@ class Model(object):
 
     def unstack(self, tensor):
         """
-        Unstacks batches and sequences to transform tensor to be shape
-        (batchsize, seqlen, ...)
+        Unstacks batches and sequences to transform tensor to be shape (batchsize, seqlen, ...)
         """
         shape = tensor.get_shape().as_list()
         if shape[0] == self.batchsize * self.seqlen:
@@ -43,8 +53,16 @@ class Model(object):
         """
         Build the model on provided inputs
 
-        Pass reuse=True to build the model with shared weights
-        (eg for validation)
+        Args:
+        -------
+        :inputs is a tensor of shape (batchsize, sequence length, x, y, channels)
+        :reuse can be used to share weights across graph for (eg) validation
+
+        Outputs:
+        -------
+        :encoded is a (batchsize, sequence length, latent size) tensor of image encodings
+        :transitioned[0] is a (batchsize, sequence length, latent size) tensor of predicted next-frame encodings
+        :decoded is a (batchsize, sequence length, x, y, channels) tensor of predicted frames
         """
         inputs = self.stack(inputs)
         with tf.variable_scope('encoder', reuse=reuse):
@@ -76,8 +94,14 @@ class Model(object):
 
     def build_target_encoder(self, targets, reuse=True):
         """
-        For LSTM-Encoder training, we need encodings of targets as well
-        using same weights as encoder
+        Returns encoding of targets
+
+        Useful for training encoder without decoder
+
+        Args:
+        --------
+        :targets is a tensor of shape (batchsize, sequence length, x, y, channels)
+        :reuse tells graph not to duplicate weights
         """
         targets = self.stack(targets)
         with tf.variable_scope('encoder', reuse=reuse):
