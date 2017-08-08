@@ -24,3 +24,11 @@ Model is working and producing output now, which is a nice change. However, outp
 The core logic here is that the memory state learns "motion" information and interacts with the image encodings, encouraging the co-learning of motion-relevant features in image encoder and motion information in the LSTM hidden state.
 
 Let's see how it works.
+
+2017 08 08
+
+17:15
+Model is training and converging smoothly now - hopefully will see good output from it later tonight.
+
+TODO: load_data.py: add sequence length to load_data functions
+TODO: load_data.py: assert split_type
