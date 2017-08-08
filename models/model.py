@@ -66,7 +66,7 @@ class Model(object):
                 dtype=tf.float32, swap_memory=True,
             )
 
-            transitioned_ = self.unstack(transitioned[0])
+            transitioned_ = self.stack(transitioned[0])
 
         with tf.variable_scope('decoder', reuse=reuse):
             decoded = self.decoder(transitioned_)
