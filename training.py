@@ -8,48 +8,104 @@ def get_l2_term(exclude_names=['lstm']):
     return tf.add_n([tf.nn.l2_loss(v) for v in l2_vars])
 
 
-def train(model, inputs, targets,
-            num_epochs=10, batchsize=16, l2weight=None,
-            save=True, print_interval=500):
+def train(model, num_epochs=10, batchsize=4, savefile=None):
 
-    encoded, transitioned, decoded = model.build_full(inputs, batchsize)
-    loss = tf.reduce_mean(tf.pow(decoded - targets, 2))
-    training_loss = loss + l2weight * get_l2_term() if l2weight is not None else loss
-    train_step = tf.train.AdamOptimizer().minimize(training_loss)
+    ## LSTM-Encoder Training Graph ##
+    training_inputs, training_targets = load.inputs('training', batchsize, training_epochs)
 
-    if save:
-        saver = tf.train.Saver()
+    encoded, transitioned, decoded = model.build(training_inputs)    # discard decoder here
+    loss = tf.reduce_mean(tf.pow(decoded - training_targets, 2))
 
-    init_global = tf.global_variables_initalizer()
+    optimizer = tf.train.AdamOptimizer()
+    trainable_vars = tf.trainable_variables()
+    clipped_gradients, _ = tf.clip_by_global_norm(tf.gradients(loss, trainable_vars), 1)    # clip those uglies
+    train_step = optimizer.apply_gradients(zip(clipped_gradients, trainable_vars))
+
+    ## LSTM-Encoder Validation Graph ##
+
+    validation_inputs, validation_targets = load.inputs('validation', batchsize, 1)
+
+    encoded_validation, transitioned_validation, decoded_validation = model.build(validation_inputs, reuse=True)
+    targeted_validation = model.build_target_encoder(validation_targets, reuse=True)
+    validation_loss = tf.reduce_mean(tf.pow(decoded_validation - validation_targets, 2))
+
+    saver = tf.train.Saver()
+    init_global = tf.global_variables_initializer()
     init_local = tf.local_variables_initializer()
+
     coord = tf.train.Coordinator()
 
     with tf.Session() as sesh:
         sesh.run([init_global, init_local])
         threads = tf.train.start_queue_runners(sess=sesh, coord=coord)
 
-        losses = []
+        # initialize lists for tracking
 
+        decoder_losses = []
+        decoder_validation_losses = []
+
+        predictions = []
+        encodings = []
+        transitions = []
+        validation_predictions = []
+        validation_transitions = []
+        validation_encodings = []
+        recovery = []
+        validation_recovery = []
+
+        # first, encoder training
         try:
             step = 0
 
             while not coord.should_stop():
-                _, loss_value = sesh.run([train_step, loss])
-                losses.append(loss_value)
+                _, loss_value, enc, trans, pred, input_recover = sesh.run(
+                    [train_step, loss, encoded, transitioned, decoded, training_targets]
+                )
 
-                if step % 500 == 0:
-                    print('Step {} loss:\t{:.8f}'.format(step, loss_value))
+                decoder_losses.append(loss_value)
+
+                if step % 250 == 0:
+                    print('Step {}, loss: {:.2f}'.format(step, loss_value))
+                    encodings.append(enc)
+                    transitions.append(trans)
+                    predictions.append(pred)
+                    recovery.append(input_recover)
 
                 step += 1
 
         except tf.errors.OutOfRangeError:
-            print('Done; loss:\t{:.8f}'.format(loss_value))
+            print('Encoder trained: {:.2f}'.format(loss_value))
+
+        # second, encoder validation
+        try:
+            step = 0
+
+            while not coord.should_stop():
+                _, loss_value, enc, trans, pred, input_recover = sesh.run(
+                    [validation_loss, encoded_validation, transitioned_validation,
+                     decoded_validation, validation_targets]
+                )
+                decoder_validation_losses.append(loss_value)
+
+                if step % 100 == 0:
+                    print(step, loss_value)
+                    validation_encodings.append(enc)
+                    validation_transitions.append(trans)
+                    validation_predictions.append(pred)
+                    validation_recovery.append(input_recover)
+
+                step += 1
+
+        except tf.errors.OutOfRangeError:
+            print('Encoder validated: {:.2f}'.format(loss_value))
 
         finally:
             coord.request_stop()
 
         coord.join(threads)
-        saver.save(sesh, 'prototype-lstm')
+
+        if savefile is not None:
+            saver.save(sesh, savefile)
 
     return losses
 
