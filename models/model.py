@@ -94,20 +94,22 @@ class Model(object):
 
         return encoded, transitioned[0], decoded
 
-    def build_target_encoder(self, targets, reuse=True):
-        """
-        Returns encoding of targets
+class AEModel(Model):
+    """
+    Encoder and decoder without intermediate LSTM cell
+    """
+    def __init__(self, encoder, decoder, batchsize, seqlen):
+        # should probably rewrite Model base class that doesn't assume LSTM cell
+        super(AEModel, self).__init__(encoder, None, decoder, batchsize, seqlen)
 
-        Useful for training encoder without decoder
+    def build(self, inputs, reuse=False):
+        inputs = self.stack(inputs)
+        with tf.variablce_scope('encoder', reuse=reuse):
+            encoded = self.encoder(inputs)
+            self.latent_size = encoded.get_shape().as_list()[-1]
 
-        Args:
-        --------
-        :targets is a tensor of shape (batchsize, sequence length, x, y, channels)
-        :reuse tells graph not to duplicate weights
-        """
-        targets = self.stack(targets)
-        with tf.variable_scope('encoder', reuse=reuse):
-            targeted = self.encoder(targets)
-            targeted = self.unstack(targeted)
+        with tf.variable_scope('decoder', reuse=reuse):
+            decoded = self.decoder(encoded)
+            decoded = self.unstack(decoded)
 
-        return targeted
+        return encoded, decoded
