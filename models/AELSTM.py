@@ -83,5 +83,4 @@ def decoder(encoded):
 
     return deconv1
 
-lstm_cell = PTLSTMCell(num_units=1024)  # see customlayers.py for PTLSTMCell
-# change may have been overwritten, but might need to be activation=selu
+lstm_cell = PTLSTMCell(num_units=1024)

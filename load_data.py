@@ -39,6 +39,8 @@ def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None):
     """
     Queues inputs and targets in batches
 
+    // Future: make shuffling optional with default shuffle=True kwarg
+
     Args:
     -------
     :split_type determines which split files to refer to

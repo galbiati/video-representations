@@ -7,6 +7,8 @@ class Model(object):
 
     // Future: modify to allow variable-length sequences using clever slicing,
                 rather than reshaping
+    // Future: can model be made into a context manager? might be a handy way
+                to manage graphs
 
     __init__ args:
     :encoder is a function that returns a batch of image encodings (rank 2 tensor)
