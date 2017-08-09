@@ -86,7 +86,7 @@ class Model(object):
 
             transitioned_ = self.stack(transitioned[0])
 
-        with tf.variable_scope('decoder', reuse=reuse):
+        with tf.variable_scope('decoder', reuse=reuse):     # sshfs may have gummed change; this might need to be 'encoder' with reuse=True
             decoded = self.decoder(transitioned_)
             decoded = self.unstack(decoded)
 

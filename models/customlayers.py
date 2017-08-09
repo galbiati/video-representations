@@ -4,6 +4,8 @@ from models.activations import *
 from tensorflow.python.ops import rnn_cell_impl as tfrnn
 L = tf.layers
 
+## Convenience functions ##
+
 def dense_reshape(incoming, units, **kwargs):
     """
     Convenience function for making a fc layer on top of feature maps
@@ -22,6 +24,9 @@ def dense_reshape(incoming, units, **kwargs):
     newdim = np.prod(shape[1:])
     reshaped = tf.reshape(incoming, (-1, newdim))
     return L.dense(reshaped, units=units, **kwargs)
+
+
+## Tying encoder-decoder ##
 
 def invert_layer(input, inv_layer_out, inv_layer_in):
     """
@@ -42,6 +47,31 @@ def invert_layer(input, inv_layer_out, inv_layer_in):
     :the dot product of the input with the inverting gradient
     """
     return tf.tensordot(input, tf.gradients(inv_layer_out, inv_layer_in), 1)
+
+
+class DenseInversion(L.Dense):
+    """Call dense layer with inverted weights
+    Come back and fix bias at some point
+    """
+    def call(self, inputs):
+        inputs = tf.convert_to_tensor(inputs, dtype=self.dtype)
+        shape = inputs.get_shape().as_list()
+        output_shape = shape[:-1] + [self.units]
+        if len(output_shape) > 2:
+            # Broadcasting is required for the inputs.
+            outputs = tf.tensordot(inputs, tf.transpose(self.kernel), [[len(shape) - 1], [0]])
+            # Reshape the output back to the original ndim of the input.
+            outputs.set_shape(output_shape)
+        else:
+            outputs = tf.matmul(inputs, tf.transpose(self.kernel))
+        if self.use_bias:
+            outputs = tf.nn.bias_add(outputs, self.bias)
+        if self.activation is not None:
+            return self.activation(outputs)  # pylint: disable=not-callable
+        return outputs
+
+
+## Custom RNN cells ##
 
 class PTLSTMCell(tfrnn.RNNCell):
 
@@ -108,7 +138,7 @@ class PTLSTMCell(tfrnn.RNNCell):
 
         # assert the things
         assert input_size.value is not None
-        assert inputs.get_shape().as_list()[-1] == self.num_units
+        assert inputs.get_shape().as_list()[-1] == self._num_units
         assert isinstance(state, tfrnn.LSTMStateTuple)
 
         c_prev, m_prev = state
