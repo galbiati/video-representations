@@ -50,13 +50,15 @@ def invert_layer(input, inv_layer_out, inv_layer_in):
 
 
 class DenseInversion(L.Dense):
-    """Call dense layer with inverted weights
+    """
+    Call dense layer with inverted weights
     Come back and fix bias at some point
     """
     def call(self, inputs):
         inputs = tf.convert_to_tensor(inputs, dtype=self.dtype)
         shape = inputs.get_shape().as_list()
         output_shape = shape[:-1] + [self.units]
+        
         if len(output_shape) > 2:
             # Broadcasting is required for the inputs.
             outputs = tf.tensordot(inputs, tf.transpose(self.kernel), [[len(shape) - 1], [0]])

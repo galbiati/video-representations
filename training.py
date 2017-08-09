@@ -9,7 +9,22 @@ def get_l2_term(exclude_names=['lstm']):
 
 
 def train(model, num_epochs=10, batchsize=4, savefile=None):
+    """
+    Trains the convolutional-LSTM autoencoder for num_epochs, optionally
+    saving session to savefile
 
+    Args:
+    ------
+    :model is an instance of Model() from models/model.py
+    :num_epochs is the total number of passes over the training data
+    :batchsize is the size of minibatches during training
+    :savefile is the NAME (not filepath!) into which to save the session
+
+    Outputs:
+    ------
+    :losses is a list of per-batch MSE losses during training
+    """
+    assert model.batchsize == batchsize
     ## LSTM-Encoder Training Graph ##
     training_inputs, training_targets = load.inputs('training', batchsize, training_epochs)
 
@@ -106,6 +121,12 @@ def train(model, num_epochs=10, batchsize=4, savefile=None):
 
         if savefile is not None:
             saver.save(sesh, savefile)
+
+            # also cache outputs for another day
+            np.savez_compressed('encodings.npz', *encodings)
+            np.savez_compressed('transitons.npz', *transitions)
+            np.savez_compressed('predictions.npz', *predictions)
+            np.savez_compressed('recovery.npz', *recovery)
 
     return losses
 
