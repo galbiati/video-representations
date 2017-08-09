@@ -1,9 +1,18 @@
 import os
 import tensorflow as tf
 
-
-
 def read_record(filepath_queue):
+    """
+    Parses a record from tfrecords file
+
+    Args:
+    --------
+    :filepath_queue comes from tf.train.string_input_producer()
+
+    Outputs:
+    -------
+    :video is a tensor representation of a single video, sliced to 128 frames
+    """
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filepath_queue)
 
@@ -18,7 +27,7 @@ def read_record(filepath_queue):
         }
     )
 
-    video = tf.decode_raw(features['video'], tf.uint8)   # feature may be renamed to video in future
+    video = tf.decode_raw(features['video'], tf.uint8)
 
     video_shape = tf.stack([-1, 60, 80, 3])
     video = tf.cast(tf.reshape(video, video_shape), tf.float32)
@@ -26,7 +35,23 @@ def read_record(filepath_queue):
 
     return video
 
-def inputs(split_type, batchsize, num_epochs, queue_name=None):
+def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None):
+    """
+    Queues inputs and targets in batches
+
+    Args:
+    -------
+    :split_type determines which split files to refer to
+                should be one of 'training', 'testing', or 'validation'
+    :batchsize is batchsize
+    :num_epochs is the number of times the queue can loop through
+    :queue_name is used to create multiple queues for feeding different graph
+                sections separately
+    Outputs:
+    -------
+    :video_inputs are batches of videos (rank 5 tensors; batchsize, sequence length, x, y, channels)
+    :video_outputs are the same, but offset by one frame
+    """
     if not queue_name:
         queue_name = split_type
 
@@ -46,7 +71,7 @@ def inputs(split_type, batchsize, num_epochs, queue_name=None):
         capacity=128 + 2*batchsize, min_after_dequeue=128, num_threads=2
     )
 
-    video_inputs = tf.slice(videos, begin=[0, 0, 0, 0, 0], size=[-1, 64, -1, -1, -1])
-    video_outputs = tf.slice(videos, begin=[0, 1, 0, 0, 0], size=[-1, 64, -1, -1, -1])
+    video_inputs = tf.slice(videos, begin=[0, 0, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
+    video_outputs = tf.slice(videos, begin=[0, 1, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
 
     return video_inputs, video_outputs

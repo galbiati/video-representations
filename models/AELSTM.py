@@ -61,26 +61,27 @@ def decoder(encoded):
 
     dense1_reshaped = tf.reshape(dense1, (-1, 48, 68, 64))
 
-    deconv1 = L.conv2d_transpose(
-        dense1_reshaped, name='deconv1',
-        filters=32, kernel_size=5, activation=selu
-    )
-
-    deconv2 = L.conv2d_transpose(
-        deconv1, name='deconv2',
+    deconv4 = L.conv2d_transpose(
+        dense1_reshaped, name='conv4',
         filters=32, kernel_size=5, activation=selu
     )
 
     deconv3 = L.conv2d_transpose(
-        deconv2, name='deconv3',
+        deconv4, name='conv3',
+        filters=32, kernel_size=5, activation=selu
+    )
+
+    deconv2 = L.conv2d_transpose(
+        deconv3, name='conv2',
         filters=32, kernel_size=3, activation=selu,
     )
 
-    deconv4 = L.conv2d_transpose(
-        deconv3, name='deconv4',
+    deconv1 = L.conv2d_transpose(
+        deconv2, name='conv1',
         filters=3, kernel_size=3, activation=selu,
     )
 
-    return deconv4
+    return deconv1
 
 lstm_cell = PTLSTMCell(num_units=1024)  # see customlayers.py for PTLSTMCell
+# change may have been overwritten, but might need to be activation=selu
