@@ -32,3 +32,10 @@ Model is training and converging smoothly now - hopefully will see good output f
 
 TODO: load_data.py: add sequence length to load_data functions
 TODO: load_data.py: assert split_type
+
+2017 08 09
+
+9:20
+
+End-to-end training is definitely correct way to do it - JK pointed out that model could learn trivial representation by just assigning zeros to all latent vectors.
+Also changed PTLSTM activation to selu; tanh squeezes too hard and gradient is too small.
