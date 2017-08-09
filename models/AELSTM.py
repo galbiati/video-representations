@@ -83,4 +83,4 @@ def decoder(encoded):
 
     return deconv1
 
-lstm_cell = PTLSTMCell(num_units=1024, activation=lambda x: 2*tf.nn.tanh(x))
+lstm_cell = PTLSTMCell(num_units=1024, activation=lambda x: 1.02*tf.nn.tanh(x))
