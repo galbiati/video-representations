@@ -123,10 +123,10 @@ def train(model, num_epochs=10, batchsize=4, savefile=None):
             saver.save(sesh, savefile)
 
             # also cache outputs for another day
-            np.savez_compressed('encodings.npz', *encodings)
-            np.savez_compressed('transitons.npz', *transitions)
-            np.savez_compressed('predictions.npz', *predictions)
-            np.savez_compressed('recovery.npz', *recovery)
+            np.savez_compressed('training_encodings.npz', *encodings)
+            np.savez_compressed('training_transitons.npz', *transitions)
+            np.savez_compressed('training_predictions.npz', *predictions)
+            np.savez_compressed('training_recovery.npz', *recovery)
 
     return losses
 

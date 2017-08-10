@@ -19,29 +19,29 @@ def encoder(image):
     """
     conv1 = L.conv2d(
         image, name='conv1',
-        filters=16, kernel_size=3, activation=selu
+        filters=16, kernel_size=3, activation=lrelu
     )
 
     conv2 = L.conv2d(
         conv1, name='conv2',
-        filters=32, kernel_size=3, activation=selu
+        filters=32, kernel_size=3, activation=lrelu
     )
 
     conv3 = L.conv2d(
         conv2, name='conv3',
-        filters=32, kernel_size=5, activation=selu
+        filters=32, kernel_size=5, activation=lrelu
     )
 
     conv4 = L.conv2d(
         conv3, name='conv4',
-        filters=64, kernel_size=5, activation=selu
+        filters=64, kernel_size=5, activation=lrelu
     )
     ## The below lines are useful for debugging when modifying architecture
     # shape_ = conv4.get_shape().as_list()
     # newdim = shape_[1] * shape_[2] * shape_[3]
     # print(shape_, newdim)
 
-    dense1 = dense_reshape(conv4, name='dense1', units=1024, activation=selu)
+    dense1 = dense_reshape(conv4, name='dense1', units=1024, activation=lrelu)
     return dense1
 
 
@@ -63,24 +63,24 @@ def decoder(encoded):
 
     deconv4 = L.conv2d_transpose(
         dense1_reshaped, name='conv4',
-        filters=32, kernel_size=5, activation=selu
+        filters=32, kernel_size=5, activation=lrelu
     )
 
     deconv3 = L.conv2d_transpose(
         deconv4, name='conv3',
-        filters=32, kernel_size=5, activation=selu
+        filters=32, kernel_size=5, activation=lrelu
     )
 
     deconv2 = L.conv2d_transpose(
         deconv3, name='conv2',
-        filters=32, kernel_size=3, activation=selu,
+        filters=32, kernel_size=3, activation=lrelu,
     )
 
     deconv1 = L.conv2d_transpose(
         deconv2, name='conv1',
-        filters=3, kernel_size=3, activation=selu,
+        filters=3, kernel_size=3, activation=lrelu,
     )
 
     return deconv1
 
-lstm_cell = PTLSTMCell(num_units=1024, activation=lambda x: 1.02*tf.nn.tanh(x))
+lstm_cell = PTLSTMCell(num_units=1024, activation=lambda x: 1.25*tf.nn.tanh(x))

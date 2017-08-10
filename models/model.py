@@ -94,6 +94,33 @@ class Model(object):
 
         return encoded, transitioned[0], decoded
 
+    def build_encoder_decoder(self, inputs, reuse=True):
+        """
+        Build an autoencoder without an LSTM
+
+        Args:
+        -------
+        :inputs is a tensor of shape (batchsize, sequence length, x, y, channels)
+        :reuse can be used to share weights across graph for (eg) validation
+
+        Outputs:
+        -------
+        :encoded is a (batchsize, sequence length, latent size) tensor of image encodings
+        :decoded is a (batchsize, sequence length, x, y, channels) tensor of predicted frames
+        """
+
+        inputs = self.stack(inputs)
+
+        with tf.variable_scope('encoder', reuse=reuse):
+            encoded = self.encoder(inputs)
+            self.latent_size = encoded.get_shape().as_list()[-1]
+
+        with tf.variable_scope('decoder', reuse=reuse):
+            decoded =self.decoder(encoded)
+            decoded = self.unstack(decoded)
+
+        return encoded, decoded
+
 class AEModel(Model):
     """
     Encoder and decoder without intermediate LSTM cell
