@@ -66,8 +66,10 @@ class Model(object):
         :transitioned[0] is a (batchsize, sequence length, latent size) tensor of predicted next-frame encodings
         :decoded is a (batchsize, sequence length, x, y, channels) tensor of predicted frames
         """
-        inputs = self.stack(inputs)
         with tf.variable_scope('encoder', reuse=reuse):
+            inputs = self.stack(inputs)
+            print(inputs.name)
+
             encoded = self.encoder(inputs)
             self.latent_size = encoded.get_shape().as_list()[-1]
             # encoded = tf.reshape(encoded, (self.batchsize, self.seqlen, self.latent_size))
@@ -88,7 +90,7 @@ class Model(object):
 
             transitioned_ = self.stack(transitioned[0])
 
-        with tf.variable_scope('decoder', reuse=reuse):     # sshfs may have gummed change; this might need to be 'encoder' with reuse=True
+        with tf.variable_scope('encoder', reuse=True):     # sshfs may have gummed change; this might need to be 'encoder' with reuse=True
             decoded = self.decoder(transitioned_)
             decoded = self.unstack(decoded)
 
