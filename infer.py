@@ -3,56 +3,63 @@ import numpy as np
 import tensorflow as tf
 import tqdm
 from training import *
-from load_data import *
-import models.ConvAE as cae
-
+from download import *
+from models.AELSTM import *
 L = tf.layers
 
-# build graph, infer
-def infer(X, y, model_file, batchsize=128):
-    """X, y are numpy arrays. model_file is from tf.Saver.save"""
-    print("Building graph...")
-    input_var = tf.placeholder(dtype=tf.float32, shape=(None, 3, 60, 80), name='input')
-    target_var = tf.placeholder(dtype=tf.float32, shape=(None, 3, 60, 80), name='target')
-    l2_weight = .01
+def infer(video_files, model_file, output_dir, seqlen=64, batchsize=8):
+    """
+    Takes a list of avi files and a runs the model in model_file on them
 
-    with tf.variable_scope('encoder'):
-        encoded = cae.encoder(input_var)
+    Args:
+    ------
+    :video_files is a list of filepaths to avi files
+    :model_file is the name of a saved tensorflow session
+    :output_dir is where the outputs and logs will be stored
+    :batchsize is batchsize
 
-    with tf.variable_scope('decoder'):
-        decoded = cae.decoder(encoded)
+    Outputs:
+    -------
+    None
+    """
 
-    l2_term = tf.add_n([tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name])
-    loss = tf.reduce_mean(tf.pow(decoded - target_var, 2))
-    train_step = tf.train.AdamOptimizer().minimize(loss + l2_weight*l2_term)
+    # load videos to arrays
+    video_arrays = [video_to_array(vf, n_frames=seqlen+1) for vf in video_files]
+    video_arrays = np.concatenate(video_arrays)
+
+    # initialize downsampler and model
+
+    with tf.device('/cpu:0'):
+        video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
+        downsampled = tf.layers.max_pooling2d(video_placeholder, 4, 4, name='downsampler')
+        downsampled = tf.reshape(downsampled, (-1, seqlen+1, 60, 80, 3))
+
+
+    model = Model(encoder, lstm_cell, tied_decoder, batchsize, seqlen)
+
+    inputs = tf.slice(downsampled, begin=[0, 0, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
+    outputs = tf.slice(downsampled, begin=[0, 1, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
+
+    encoded, transitioned, decoded = model.build(inputs)
+    loss = tf.reduce_mean(tf.pow(decoded - outputs, 2))
+
     saver = tf.train.Saver()
-    init = tf.global_variables_initializer()
 
     with tf.Session() as sesh:
-        print('Restoring params...')
         saver.restore(sesh, model_file)
-
-        outputs = []
-        prog_bar = tqdm.tqdm(
-            iterate_minibatches(X, y, batchsize=batchsize, shuffle=False),
-            total=X.shape[0]//batchsize, unit='batches', desc='Completed minibatches'
-
+        loss_value, encodings, transitions, predictions = sesh.run(
+            [loss, encoded, transitioned, decoded],
+            {video_placeholder: video_arrays}
         )
-        for batch in prog_bar:
-            X_batch, y_batch = batch
-            output = sesh.run(decoded, {input_var: X_batch})
-            outputs.append(output)
 
-    return np.concatenate(outputs)
+
+    return loss_value, encodings, transitions, predictions
 
 def main():
     data_dir = os.path.expanduser('~/Insight/video-representations/data/downsampled')
     model_file = 'tmp/models/prototype_ae initial.ckpt'
-    X, y = load_all_data_stacked(data_dir, skip_first=1, every_n=2)
 
-    predictions = infer(X, y, model_file)
-    print('Saving predictions...')
-    np.savez_compressed(os.path.join(data_dir, 'predictions.npz'), predictions)
+    return None
 
 
 if __name__ == '__main__':
