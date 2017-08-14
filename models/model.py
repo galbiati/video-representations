@@ -72,7 +72,6 @@ class Model(object):
 
             encoded = self.encoder(inputs)
             self.latent_size = encoded.get_shape().as_list()[-1]
-            # encoded = tf.reshape(encoded, (self.batchsize, self.seqlen, self.latent_size))
             encoded = self.unstack(encoded)
 
         with tf.variable_scope('lstm', reuse=reuse):
@@ -81,6 +80,7 @@ class Model(object):
                 tf.ones((self.batchsize, self.latent_size)),
                 tf.zeros((self.batchsize, self.latent_size))
             )
+
             transitioned = tf.nn.dynamic_rnn(
                 self.cell, encoded,
                 initial_state = initial_state,
@@ -90,7 +90,7 @@ class Model(object):
 
             transitioned_ = self.stack(transitioned[0])
 
-        with tf.variable_scope('encoder', reuse=True):     # sshfs may have gummed change; this might need to be 'encoder' with reuse=True
+        with tf.variable_scope('encoder', reuse=True):
             decoded = self.decoder(transitioned_)
             decoded = self.unstack(decoded)
 
@@ -119,26 +119,6 @@ class Model(object):
 
         with tf.variable_scope('decoder', reuse=reuse):
             decoded =self.decoder(encoded)
-            decoded = self.unstack(decoded)
-
-        return encoded, decoded
-
-class AEModel(Model):
-    """
-    Encoder and decoder without intermediate LSTM cell
-    """
-    def __init__(self, encoder, decoder, batchsize, seqlen):
-        # should probably rewrite Model base class that doesn't assume LSTM cell
-        super(AEModel, self).__init__(encoder, None, decoder, batchsize, seqlen)
-
-    def build(self, inputs, reuse=False):
-        inputs = self.stack(inputs)
-        with tf.variablce_scope('encoder', reuse=reuse):
-            encoded = self.encoder(inputs)
-            self.latent_size = encoded.get_shape().as_list()[-1]
-
-        with tf.variable_scope('decoder', reuse=reuse):
-            decoded = self.decoder(encoded)
             decoded = self.unstack(decoded)
 
         return encoded, decoded
