@@ -179,9 +179,19 @@ def main(download_dir, extract_dir, output_dir, downsample_frames=15):
 
     filepaths, labels = get_filepaths(extract_dir)
     training_filepaths, validation_filepaths, testing_filepaths = split_video_files(filepaths)
+
+    with open(os.path.join(output_dir, 'training.txt'), 'wb') as f:
+        f.write('\n'.join(training_filepaths)+'\n')
+
+    with open(os.path.join(output_dir, 'validation.txt'), 'wb') as f:
+        f.write('\n'.join(validation_filepaths) + '\n')
+
+    with open(os.path.join(output_dir, 'testing.txt'), 'wb') as f:
+        f.write('\n'.join(testing_filepaths) + '\n')
+
     label_dict = dict(zip(labels, np.arange(len(labels))))
 
-    print('\nSerialize me, Scotty')
+    print('\nSerializing...')
     os.makedirs(os.path.join(output_dir, 'training'), exist_ok=True)
     for i in range(len(training_filepaths)//100 + 1):
         training_output = os.path.join(output_dir, 'training/training{}.tfrecords'.format(i))
