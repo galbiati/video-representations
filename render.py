@@ -67,8 +67,8 @@ def infer(split_type, batchsize=4, seqlen=64):
         coord.join(threads)
         print('Average loss: {:.3f}'.format(np.mean(losses)))
 
-        np.savez_compressed('recovered.npz', *recoveries)
-        np.savez_compressed('predicted.npz', *predictions)
+        np.savez_compressed('recovery.npz', *recoveries)
+        np.savez_compressed('predictions.npz', *predictions)
         np.savez_compressed('encodings.npz', *encodings)
         np.savez_compressed('transitions.npz', *transitions)
 

@@ -66,11 +66,12 @@ class Model(object):
         :transitioned[0] is a (batchsize, sequence length, latent size) tensor of predicted next-frame encodings
         :decoded is a (batchsize, sequence length, x, y, channels) tensor of predicted frames
         """
-        inputs = self.stack(inputs)
         with tf.variable_scope('encoder', reuse=reuse):
+            inputs = self.stack(inputs)
+            print(inputs.name)
+
             encoded = self.encoder(inputs)
             self.latent_size = encoded.get_shape().as_list()[-1]
-            # encoded = tf.reshape(encoded, (self.batchsize, self.seqlen, self.latent_size))
             encoded = self.unstack(encoded)
 
         with tf.variable_scope('lstm', reuse=reuse):
@@ -79,6 +80,7 @@ class Model(object):
                 tf.ones((self.batchsize, self.latent_size)),
                 tf.zeros((self.batchsize, self.latent_size))
             )
+
             transitioned = tf.nn.dynamic_rnn(
                 self.cell, encoded,
                 initial_state = initial_state,
@@ -88,28 +90,35 @@ class Model(object):
 
             transitioned_ = self.stack(transitioned[0])
 
-        with tf.variable_scope('decoder', reuse=reuse):     # sshfs may have gummed change; this might need to be 'encoder' with reuse=True
+        with tf.variable_scope('encoder', reuse=True):
             decoded = self.decoder(transitioned_)
             decoded = self.unstack(decoded)
 
         return encoded, transitioned[0], decoded
 
-class AEModel(Model):
-    """
-    Encoder and decoder without intermediate LSTM cell
-    """
-    def __init__(self, encoder, decoder, batchsize, seqlen):
-        # should probably rewrite Model base class that doesn't assume LSTM cell
-        super(AEModel, self).__init__(encoder, None, decoder, batchsize, seqlen)
+    def build_encoder_decoder(self, inputs, reuse=True):
+        """
+        Build an autoencoder without an LSTM
 
-    def build(self, inputs, reuse=False):
+        Args:
+        -------
+        :inputs is a tensor of shape (batchsize, sequence length, x, y, channels)
+        :reuse can be used to share weights across graph for (eg) validation
+
+        Outputs:
+        -------
+        :encoded is a (batchsize, sequence length, latent size) tensor of image encodings
+        :decoded is a (batchsize, sequence length, x, y, channels) tensor of predicted frames
+        """
+
         inputs = self.stack(inputs)
-        with tf.variablce_scope('encoder', reuse=reuse):
+
+        with tf.variable_scope('encoder', reuse=reuse):
             encoded = self.encoder(inputs)
             self.latent_size = encoded.get_shape().as_list()[-1]
 
         with tf.variable_scope('decoder', reuse=reuse):
-            decoded = self.decoder(encoded)
+            decoded =self.decoder(encoded)
             decoded = self.unstack(decoded)
 
         return encoded, decoded
