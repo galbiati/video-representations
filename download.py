@@ -181,8 +181,10 @@ def main(download_dir, extract_dir, output_dir, downsample_frames=15):
     label_dict = dict(zip(labels, np.arange(len(labels))))
 
     print('\nSerialize me, Scotty')
-    training_output = os.path.join(output_dir, 'training.tfrecords')
-    video_files_to_tfrecords(training_output, training_filepaths, label_dict)
+    os.makedirs(os.path.join(output_dir, 'training'), exist_ok=True)
+    for i in range(len(training_filepaths)//100 + 1):
+        training_output = os.path.join(output_dir, 'training/training{}.tfrecords'.format(i))
+        video_files_to_tfrecords(training_output, training_filepaths[i:100*i], label_dict)
 
     validation_output = os.path.join(output_dir, 'validation.tfrecords')
     video_files_to_tfrecords(validation_output, validation_filepaths, label_dict)
