@@ -62,10 +62,17 @@ def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None):
     if not num_epochs:
         num_epochs = None
 
-    filepath = os.path.join(data_dir, '{}.tfrecords'.format(split_type))
+    if split_type == 'training':
+        data_dir = os.path.join(data_dir, 'training')
+        walked = list(os.walk(data_dir))[0]
+        dir_ = walked[0]
+        files = walked[2]
+        filepaths = [os.path.join(dir_, f) for f in files]
+    else:
+        filepaths = [os.path.join(data_dir, '{}.tfrecords'.format(split_type))]
 
     with tf.name_scope('input/' + queue_name):
-        filepath_queue = tf.train.string_input_producer([filepath], num_epochs=num_epochs)
+        filepath_queue = tf.train.string_input_producer(filepaths, num_epochs=num_epochs)
 
     video = read_record(filepath_queue)
     videos = tf.train.shuffle_batch(

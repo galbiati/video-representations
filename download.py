@@ -174,7 +174,8 @@ def main(download_dir, extract_dir, output_dir, downsample_frames=15):
         download_videos(download_dir)
 
     print('\nExtracting archive...\n')
-    # extract_videos(download_dir, extract_dir)
+    if not os.path.exists(os.path.join(extract_dir, 'UCF-101')):
+        extract_videos(download_dir, extract_dir)
 
     filepaths, labels = get_filepaths(extract_dir)
     training_filepaths, validation_filepaths, testing_filepaths = split_video_files(filepaths)
@@ -184,7 +185,7 @@ def main(download_dir, extract_dir, output_dir, downsample_frames=15):
     os.makedirs(os.path.join(output_dir, 'training'), exist_ok=True)
     for i in range(len(training_filepaths)//100 + 1):
         training_output = os.path.join(output_dir, 'training/training{}.tfrecords'.format(i))
-        video_files_to_tfrecords(training_output, training_filepaths[i:100*i], label_dict)
+        video_files_to_tfrecords(training_output, training_filepaths[100*i:100*(i+1)], label_dict)
 
     validation_output = os.path.join(output_dir, 'validation.tfrecords')
     video_files_to_tfrecords(validation_output, validation_filepaths, label_dict)

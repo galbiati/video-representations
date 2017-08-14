@@ -141,7 +141,7 @@ def encoder(image):
     # newdim = shape_[1] * shape_[2] * shape_[3]
     # print(shape_, newdim)
 
-    dense1 = dense_reshape(conv4, name='dense1', units=1024, activation=lrelu)
+    dense1 = dense_reshape(conv4, name='dense1', units=2048, activation=lrelu)
     return dense1
 
 
@@ -183,4 +183,4 @@ def decoder(encoded):
 
     return deconv1
 
-lstm_cell = PTLSTMCell(num_units=1024, activation=lambda x: 1.05*tf.nn.tanh(x))
+lstm_cell = PTLSTMCell(num_units=2048, activation=lambda x: 1.05*tf.nn.tanh(x))
