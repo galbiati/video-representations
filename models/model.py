@@ -68,7 +68,6 @@ class Model(object):
         """
         with tf.variable_scope('encoder', reuse=reuse):
             inputs = self.stack(inputs)
-            print(inputs.name)
 
             encoded = self.encoder(inputs)
             self.latent_size = encoded.get_shape().as_list()[-1]
