@@ -77,10 +77,10 @@ def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None, shuffl
     video = read_record(filepath_queue)
     videos = tf.train.shuffle_batch(
         [video], batchsize,
-        capacity=128 + 2*batchsize, min_after_dequeue=128, num_threads=2
+        capacity=128 + 2*batchsize, min_after_dequeue=128, num_threads=2,
     )
 
     video_inputs = tf.slice(videos, begin=[0, 0, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
-    video_outputs = tf.slice(videos, begin=[0, 1, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
+    video_outputs = tf.slice(videos, begin=[0, seqlen, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
 
     return video_inputs, video_outputs
