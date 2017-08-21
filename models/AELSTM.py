@@ -5,7 +5,7 @@ L = tf.layers
 from models.activations import *
 from models.customlayers import *
 
-def encoder(image, latent_size=2048):
+def encoder(image, latent_size=1024):
     """
     Creates an encoder connected to the input tensor
 
@@ -126,4 +126,4 @@ def decoder(encoded):
 
     return deconv1
 
-lstm_cell = PTLSTMCell(num_units=2048, activation=lambda x: 1.05*tf.nn.tanh(x))
+lstm_cell = PTLSTMCell(num_units=1024, activation=lambda x: 1.05*tf.nn.tanh(x))

@@ -152,7 +152,7 @@ class PTLSTMCell(tfrnn.RNNCell):
 
             c = tf.nn.sigmoid(f + self._forget_bias) * c_prev # forget from hidden state
             c = c + tf.nn.sigmoid(i) * self._activation(j) # update hidden state with gated input
-            m = inputs * self._activation(c)    # straight multiply inputs by hidden state filter
+            m = inputs * 2 * tf.nn.tanh(c / 32)  # straight multiply inputs by hidden state filter
 
-        new_state = (tfrnn.LSTMStateTuple(c, m))
+        new_state = tfrnn.LSTMStateTuple(c, m)  # must sometimes wrap as tuple?
         return m, new_state
