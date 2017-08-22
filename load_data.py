@@ -31,11 +31,12 @@ def read_record(filepath_queue):
 
     video_shape = tf.stack([-1, 60, 80, 3])
     video = tf.cast(tf.reshape(video, video_shape), tf.float32)
-    video = tf.slice(video, [0, 0, 0, 0], [128, -1, -1, -1])
+    video = tf.slice(video, [0, 0, 0, 0], [256, -1, -1, -1])
 
-    return video
+    return video[::2, :, :, :]
 
-def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None, shuffle=True):
+def inputs(split_type, batchsize, num_epochs,
+            seqlen=64, queue_name=None, shuffle=True, mode='frame'):
     """
     Queues inputs and targets in batches
 
@@ -47,13 +48,19 @@ def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None, shuffl
                 should be one of 'training', 'testing', or 'validation'
     :batchsize is batchsize
     :num_epochs is the number of times the queue can loop through
+    :seqlen is the length of sequences
     :queue_name is used to create multiple queues for feeding different graph
                 sections separately
+    :shuffle determines whether the filepath_queue is shuffled
+    :mode is in ('frame', 'sequence'); determines whether outputs are offset
+                by one frame or by sequence length
+
     Outputs:
     -------
     :video_inputs are batches of videos (rank 5 tensors; batchsize, sequence length, x, y, channels)
     :video_outputs are the same, but offset by one frame
     """
+
     if not queue_name:
         queue_name = split_type
 
@@ -72,7 +79,10 @@ def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None, shuffl
         filepaths = [os.path.join(data_dir, '{}.tfrecords'.format(split_type))]
 
     with tf.name_scope('input/' + queue_name):
-        filepath_queue = tf.train.string_input_producer(filepaths, num_epochs=num_epochs, shuffle=shuffle)
+        filepath_queue = tf.train.string_input_producer(
+            filepaths,
+            num_epochs=num_epochs, shuffle=shuffle
+        )
 
     video = read_record(filepath_queue)
     videos = tf.train.shuffle_batch(
@@ -81,6 +91,13 @@ def inputs(split_type, batchsize, num_epochs, seqlen=64, queue_name=None, shuffl
     )
 
     video_inputs = tf.slice(videos, begin=[0, 0, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
-    video_outputs = tf.slice(videos, begin=[0, seqlen, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
+
+    if mode == 'frame':
+        video_outputs = tf.slice(videos, begin=[0, 1, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
+    elif mode == 'sequence':
+        video_outputs = tf.slice(videos, begin=[0, seqlen, 0, 0, 0], size=[-1, seqlen, -1, -1, -1])
+    else:
+        raise ValueError('Mode should be either "frame" or "sequence"')
+
 
     return video_inputs, video_outputs

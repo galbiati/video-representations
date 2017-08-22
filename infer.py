@@ -38,7 +38,7 @@ def infer(video_files, model_file, seqlen=64, batchsize=8):
 
     with tf.device('/cpu:0'):
         video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
-        downsampled = tf.layers.max_pooling2d(video_placeholder, 4, 4, name='downsampler')
+        downsampled = tf.tf.image.resize_images(video_placeholder, [60, 80])
         downsampled = tf.reshape(downsampled, (batchsize, seqlen+1, 60, 80, 3))
 
 
