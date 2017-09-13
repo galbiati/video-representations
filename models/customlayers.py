@@ -127,7 +127,45 @@ class PTLSTMCell(tfrnn.RNNCell):
 
             c = tf.nn.sigmoid(f + self._forget_bias) * c_prev # forget from hidden state
             c = c + tf.nn.sigmoid(i) * self._activation(j) # update hidden state with gated input
+            # this is a little oddish - can something similar to lrelu be used for activation without detonating the gradient?
             m = inputs * 1.1 * tf.nn.tanh(c)  # straight multiply inputs by hidden state filter
+            # I think perhaps instead doing `inputs + lrelu(c)` might accomplish same with better learning/computational properties?
+
+        new_state = tfrnn.LSTMStateTuple(c, m)  # must sometimes wrap as tuple?
+        return m, new_state
+
+class CellProjectLSTMCell(PTLSTMCell):
+
+    """
+    A variant of PTLSTMCell that concatenates updated cell state with input
+    and projects to produce output.
+    """
+
+    def call(self, inputs, state):
+        """
+        Args:
+        -------
+        :inputs is a batch of sequences of encoded images (rank 3 tensor)
+        :state is an LSTMStateTuple object wrapping
+                the previous input and hidden state
+        """
+        input_size = inputs.get_shape().with_rank(2)[1]
+
+        # assert the things
+        assert input_size.value is not None
+        assert inputs.get_shape().as_list()[-1] == self._num_units
+        assert isinstance(state, tfrnn.LSTMStateTuple)
+
+        c_prev, m_prev = state
+
+        scope = tf.get_variable_scope()
+        with tf.variable_scope(scope, initializer=self._initializer):
+            lstm_matrix = tfrnn._linear([inputs, m_prev], 3*self._num_units, bias=True)
+            i, j, f = tf.split(lstm_matrix, 3, axis=1)
+
+            c = tf.nn.sigmoid(f + self._forget_bias) * c_prev # forget from hidden state
+            c = c + tf.nn.sigmoid(i) * self._activation(j) # update hidden state with gated input
+            m = tfrnn._linear([inputs, lrelu(c)], self._num_units, bias=True) # activate cell state with relu and coproject with inputs
 
         new_state = tfrnn.LSTMStateTuple(c, m)  # must sometimes wrap as tuple?
         return m, new_state

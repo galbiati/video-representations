@@ -13,3 +13,4 @@ checkpoint
 *.index
 *.meta
 data
+data/*
