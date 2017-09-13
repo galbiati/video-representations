@@ -125,8 +125,18 @@ def split_video_files(filepaths, ratio=10):
 
     return train_filepaths.tolist(), validation_filepaths.tolist(), test_filepaths.tolist()
 
-def video_files_to_tfrecords(output_file, filepaths, label_dict):
-    """Serializes video files in filepaths to a tfrecords file in output_file"""
+def video_files_to_tfrecords(output_file, filepaths, label_dict, downsample_graph):
+    """
+    Serializes video files in filepaths to a tfrecords file in output_file.
+    Could probably be sped up by parallelizing (eg using queues)
+
+    Args:
+    -------
+    :output_file is the filepath where the serialized data will be saved
+    :filepaths is a list of filepaths to vidoes
+    :label_dict maps labels to video names
+
+    """
 
     if type(filepaths) != list:
         filepaths = [filepaths]    # catch single inputs (not a normal case)
@@ -137,36 +147,32 @@ def video_files_to_tfrecords(output_file, filepaths, label_dict):
         'desc': 'Serializing video frames'
     }
 
-    with tf.device('/cpu:0'):
-        video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
-        downsampled = tf.layers.max_pooling2d(video_placeholder, 4, 4, name='downsampler')
-        downsampled_reshaped = tf.reshape(downsampled, (-1, 60, 80, 3))
+    video_placeholder, downsampled = downsample_graph
 
     with tf.python_io.TFRecordWriter(output_file) as writer:
-        with tf.Session() as sesh:
-            for path in tqdm.tqdm(filepaths, **tqkws):
-                video_array = video_to_array(path)
-                label = label_dict[os.path.split(os.path.abspath(os.path.join(path, os.pardir)))[-1]]
+        for path in tqdm.tqdm(filepaths, **tqkws):
+            video_array = video_to_array(path)
+            label = label_dict[os.path.split(os.path.abspath(os.path.join(path, os.pardir)))[-1]]
 
-                l = video_array.shape[0]
-                w = video_array.shape[2]
-                h = video_array.shape[1]
+            l = video_array.shape[0]
+            w = video_array.shape[2]
+            h = video_array.shape[1]
 
-                if h != 240 or w != 320:
-                    continue
+            if h != 240 or w != 320:
+                continue
 
-                downsampled_video_array = downsampled_reshaped.eval({video_placeholder: video_array})
-                feature_dict = {
-                    'height': _int_feature(h),
-                    'width': _int_feature(w),
-                    'length': _int_feature(l),
-                    'video': _bytes_feature(downsampled_video_array.astype(np.uint8).tostring()),
-                    'label': _int_feature(label)
-                }
+            downsampled_video_array = downsampled.eval({video_placeholder: video_array})
+            feature_dict = {
+                'height': _int_feature(h),
+                'width': _int_feature(w),
+                'length': _int_feature(l),
+                'video': _bytes_feature(downsampled_video_array.astype(np.uint8).tostring()),
+                'label': _int_feature(label)
+            }
 
-                observation = tf.train.Example(features=tf.train.Features(feature=feature_dict))
+            observation = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
-                writer.write(observation.SerializeToString())
+            writer.write(observation.SerializeToString())
 
 def main(download_dir, extract_dir, output_dir, downsample_frames=15):
 
@@ -180,28 +186,44 @@ def main(download_dir, extract_dir, output_dir, downsample_frames=15):
     filepaths, labels = get_filepaths(extract_dir)
     training_filepaths, validation_filepaths, testing_filepaths = split_video_files(filepaths)
 
-    with open(os.path.join(output_dir, 'training.txt'), 'wb') as f:
+
+
+    with open(os.path.join(output_dir, 'training.txt'), 'w') as f:
         f.write('\n'.join(training_filepaths)+'\n')
 
-    with open(os.path.join(output_dir, 'validation.txt'), 'wb') as f:
+    with open(os.path.join(output_dir, 'validation.txt'), 'w') as f:
         f.write('\n'.join(validation_filepaths) + '\n')
 
-    with open(os.path.join(output_dir, 'testing.txt'), 'wb') as f:
+    with open(os.path.join(output_dir, 'testing.txt'), 'w') as f:
         f.write('\n'.join(testing_filepaths) + '\n')
 
     label_dict = dict(zip(labels, np.arange(len(labels))))
 
     print('\nSerializing...')
-    os.makedirs(os.path.join(output_dir, 'training'), exist_ok=True)
-    for i in range(len(training_filepaths)//100 + 1):
-        training_output = os.path.join(output_dir, 'training/training{}.tfrecords'.format(i))
-        video_files_to_tfrecords(training_output, training_filepaths[100*i:100*(i+1)], label_dict)
 
-    validation_output = os.path.join(output_dir, 'validation.tfrecords')
-    video_files_to_tfrecords(validation_output, validation_filepaths, label_dict)
+    video_placeholder = tf.placeholder(name='video', dtype=tf.float32, shape=(None, 240, 320, 3))
+    downsampled = tf.image.resize_images(video_placeholder, [60, 80])
 
-    testing_output = os.path.join(output_dir, 'testing.tfrecords')
-    video_files_to_tfrecords(testing_output, testing_filepaths, label_dict)
+    with tf.Session() as sesh:
+        os.makedirs(os.path.join(output_dir, 'training'), exist_ok=True)
+        for i in range(len(training_filepaths)//100 + 1):
+            training_output = os.path.join(output_dir, 'training/training{}.tfrecords'.format(i))
+            video_files_to_tfrecords(
+                training_output, training_filepaths[100*i:100*(i+1)], label_dict,
+                (video_placeholder, downsampled)
+            )
+
+        validation_output = os.path.join(output_dir, 'validation.tfrecords')
+        video_files_to_tfrecords(
+            validation_output, validation_filepaths, label_dict,
+            (video_placeholder, downsampled)
+        )
+
+        testing_output = os.path.join(output_dir, 'testing.tfrecords')
+        video_files_to_tfrecords(
+            testing_output, testing_filepaths, label_dict,
+            (video_placeholder, downsampled)
+        )
 
     print('\nAll done!')
     return None

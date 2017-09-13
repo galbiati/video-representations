@@ -130,6 +130,87 @@ def train(model, num_epochs=10, batchsize=4, savefile=None):
 
     return losses
 
+def train_AE(model, num_epochs=10, batchsize=4, savefile=None):
+
+    """
+    WIP - return to debug and cleanup to match above
+    Ideally, wrap in class and inherit if you can figure out how
+    -- perhaps using Model() class to store vars?
+    """
+
+    saver = tf.train.Saver()
+    init_global = tf.global_variables_initializer()
+    init_local = tf.local_variables_initializer()
+
+    coord = tf.train.Coordinator()
+
+    with tf.Session() as sesh:
+        sesh.run([init_global, init_local])
+        threads = tf.train.start_queue_runners(sess=sesh, coord=coord)
+
+        # initialize lists for tracking
+
+        decoder_losses = []
+        decoder_validation_losses = []
+
+        predictions = []
+        encodings = []
+        validation_predictions = []
+        validation_encodings = []
+        recovery = []
+        validation_recovery = []
+
+        # first, encoder training
+        try:
+            step = 0
+
+            while not coord.should_stop():
+                _, loss_value, enc, pred, input_recover = sesh.run(
+                    [train_step, loss, encoded, decoded, training_targets]
+                )
+
+                decoder_losses.append(loss_value)
+
+                if step % 250 == 0:
+                    print(step, loss_value)
+                    encodings.append(enc)
+                    predictions.append(pred)
+                    recovery.append(input_recover)
+
+                step += 1
+
+        except tf.errors.OutOfRangeError:
+            print('Encoder trained: {:.2f}'.format(loss_value))
+
+        # second, encoder validation
+        try:
+            step = 0
+
+            while not coord.should_stop():
+                loss_value, enc, pred, input_recover = sesh.run(
+                    [validation_loss, encoded_validation, decoded_validation, validation_targets]
+                )
+                decoder_validation_losses.append(loss_value)
+
+                if step % 100 == 0:
+                    print(step, loss_value)
+                    validation_encodings.append(enc)
+                    validation_predictions.append(pred)
+                    validation_recovery.append(input_recover)
+
+                step += 1
+
+        except tf.errors.OutOfRangeError:
+            print('Encoder validated: {:.2f}'.format(loss_value))
+
+        finally:
+            coord.request_stop()
+
+        coord.join(threads)
+        saver.save(sesh, 'AE')
+
+    return None
+
 def iterate_minibatches(inputs, targets, batchsize=32, shuffle=False):
     """Utility func for shuffling minibatches with placeholder inputs"""
     assert len(inputs) == len(targets)

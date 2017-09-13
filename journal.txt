@@ -39,3 +39,18 @@ TODO: load_data.py: assert split_type
 
 End-to-end training is definitely correct way to do it - JK pointed out that model could learn trivial representation by just assigning zeros to all latent vectors.
 Also changed PTLSTM activation to selu; tanh squeezes too hard and gradient is too small.
+
+2017 08 15
+
+15:20
+
+I have output and saved session from the main model!
+
+Outstanding tasks (unordered):
+- check that loss is lower than loss for input image
+- retrain frame2frame AE, get new output example and loss estimate
+- get training/validation curves, early stopping (time consuming, low priority)
+- try t-SNE with labels
+- try an 'all-the-way' encoder (?!)
+- try generating multiple frames without supervising input
+- move training code to script! (yaaay)

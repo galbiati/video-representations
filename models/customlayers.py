@@ -48,31 +48,6 @@ def invert_layer(input, inv_layer_out, inv_layer_in):
     """
     return tf.tensordot(input, tf.gradients(inv_layer_out, inv_layer_in), 1)
 
-
-# class DenseInversion(L.Dense):
-#     """
-#     Call dense layer with inverted weights
-#     Come back and fix bias at some point
-#     """
-#     def call(self, inputs):
-#         inputs = tf.convert_to_tensor(inputs, dtype=self.dtype)
-#         shape = inputs.get_shape().as_list()
-#         output_shape = shape[:-1] + [self.units]
-#
-#         if len(output_shape) > 2:
-#             # Broadcasting is required for the inputs.
-#             outputs = tf.tensordot(inputs, tf.transpose(self.kernel), [[len(shape) - 1], [0]])
-#             # Reshape the output back to the original ndim of the input.
-#             outputs.set_shape(output_shape)
-#         else:
-#             outputs = tf.matmul(inputs, tf.transpose(self.kernel))
-#         if self.use_bias:
-#             outputs = tf.nn.bias_add(outputs, self.bias)
-#         if self.activation is not None:
-#             return self.activation(outputs)  # pylint: disable=not-callable
-#         return outputs
-
-
 ## Custom RNN cells ##
 
 class PTLSTMCell(tfrnn.RNNCell):
@@ -152,7 +127,7 @@ class PTLSTMCell(tfrnn.RNNCell):
 
             c = tf.nn.sigmoid(f + self._forget_bias) * c_prev # forget from hidden state
             c = c + tf.nn.sigmoid(i) * self._activation(j) # update hidden state with gated input
-            m = inputs * self._activation(c)    # straight multiply inputs by hidden state filter
+            m = inputs * 1.1 * tf.nn.tanh(c)  # straight multiply inputs by hidden state filter
 
-        new_state = (tfrnn.LSTMStateTuple(c, m))
+        new_state = tfrnn.LSTMStateTuple(c, m)  # must sometimes wrap as tuple?
         return m, new_state

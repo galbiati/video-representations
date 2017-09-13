@@ -5,7 +5,7 @@ L = tf.layers
 from models.activations import *
 from models.customlayers import *
 
-def encoder(image):
+def encoder(image, latent_size=2048):
     """
     Creates an encoder connected to the input tensor
 
@@ -37,12 +37,8 @@ def encoder(image):
         conv3, name='conv4',
         filters=64, kernel_size=5, activation=lrelu
     )
-    ## The below lines are useful for debugging when modifying architecture
-    # shape_ = conv4.get_shape().as_list()
-    # newdim = shape_[1] * shape_[2] * shape_[3]
-    # print(shape_, newdim)
 
-    dense1 = dense_reshape(conv4, name='dense1', units=2048, activation=lrelu)
+    dense1 = dense_reshape(conv4, name='dense1', units=latent_size, activation=lrelu)
     return dense1
 
 def tied_decoder(encoded):
